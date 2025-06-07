@@ -1,0 +1,15 @@
+[package]
+name = "aesdiff-movie"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+timer = []
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+
+[dependencies]
+bitvec = "1.0.1"
+# fixed = "1.29.0"
