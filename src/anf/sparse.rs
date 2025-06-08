@@ -66,14 +66,6 @@ macro_rules! move_from_ref_reqs {
     };
 }
 
-macro_rules! move_from_ref {
-    ($($move:tt = $scalar:ident => $assign:tt ; $move_fn:ident := $assign_fn:ident),* $(,)?) => {
-        $(
-            move_from_ref_reqs!($move = $scalar needing F: BitViewSized => $assign ; $move_fn := $assign_fn);
-        )*
-    };
-}
-
 macro_rules! all_from_scalar {
     ($($move:tt = $scalar:ident needing F: $req0:ident $(+ $reqs:ident)* => $assign:tt ; $move_fn:ident := $assign_fn:ident),* $(,)?) => {
         $(
@@ -320,22 +312,59 @@ impl<F: BitViewSized + Ord + Clone> BitAndAssign<&Anf<F>> for Anf<F> {
     }
 }
 
+fn bitor_assign_except_rhs<F: BitViewSized + Ord + Clone>(lhs: &mut Anf<F>, rhs: &Anf<F>) {
+    assert_eq!(lhs.0.variables, rhs.0.variables);
+    let mut new = AlgebraicNormalForm(SparseTree::empty(lhs.0.variables));
+    for left in lhs.0.heap.iter() {
+        for right in rhs.0.heap.difference(&lhs.0.heap) {
+            new.0.push(left.clone() | right);
+        }
+    }
+    lhs.0.heap.append(&mut new.0.heap);
+}
+
 impl<F: BitViewSized + Ord + Clone> BitOrAssign<&Anf<F>> for Anf<F> {
     fn bitor_assign(&mut self, rhs: &Anf<F>) {
-        let mut new = AlgebraicNormalForm(SparseTree::empty(self.0.variables));
-        new.0.heap.extend(self.0.iter().chain(rhs.0.iter()).cloned());
-        for left in self.0.heap.iter() {
-            for right in rhs.0.heap.iter() {
-                new.0.push(left.clone() | right);
-            }
-        }
-        *self = new;
+        bitor_assign_except_rhs(self, rhs);
+        self.0.heap.extend(rhs.0.iter().cloned());
+    }
+}
+
+impl<F: BitViewSized + Ord + Clone> BitOrAssign<Anf<F>> for Anf<F> {
+    fn bitor_assign(&mut self, mut rhs: Anf<F>) {
+        bitor_assign_except_rhs(self, &rhs);
+        self.0.heap.append(&mut rhs.0.heap);
+    }
+}
+
+impl<F: BitViewSized + Ord + Clone> BitOr<Anf<F>> for Anf<F> {
+    type Output = Self;
+
+    fn bitor(mut self, rhs: Anf<F>) -> Self {
+        self |= rhs;
+        self
+    }
+}
+
+impl<F: BitViewSized + Ord + Clone> BitOr<&Anf<F>> for Anf<F> {
+    type Output = Self;
+
+    fn bitor(mut self, rhs: &Anf<F>) -> Self {
+        self |= rhs;
+        self
+    }
+}
+
+impl<F: BitViewSized + Ord + Clone> BitOr<Anf<F>> for &Anf<F> {
+    type Output = Anf<F>;
+
+    fn bitor(self, rhs: Anf<F>) -> Anf<F> {
+        rhs | self
     }
 }
 
 move_from_ref_reqs! {
     BitAnd = Anf needing F: BitViewSized + Ord + Clone => BitAndAssign; bitand := bitand_assign,
-    BitOr = Anf needing F: BitViewSized + Ord + Clone => BitOrAssign; bitor := bitor_assign,
 }
 
 all_from_scalar!(
