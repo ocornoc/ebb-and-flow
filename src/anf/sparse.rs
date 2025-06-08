@@ -368,5 +368,5 @@ move_from_ref_reqs! {
 }
 
 all_from_scalar!(
-    BitXor = AlgebraicNormalForm needing F: BitViewSized + Ord => BitXorAssign; bitxor := bitxor_assign,
+    BitXor = Anf needing F: BitViewSized + Ord => BitXorAssign; bitxor := bitxor_assign,
 );
