@@ -309,6 +309,7 @@ pub type Anf<F> = AlgebraicNormalForm<F>;
 
 impl<F: BitViewSized + Ord + Clone> BitAndAssign<&Anf<F>> for Anf<F> {
     fn bitand_assign(&mut self, rhs: &Anf<F>) {
+        assert_eq!(self.0.variables, rhs.0.variables);
         let mut new = AlgebraicNormalForm(SparseTree::empty(self.0.variables));
         for left in self.0.heap.iter() {
             for right in rhs.0.heap.iter() {
