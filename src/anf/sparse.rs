@@ -288,6 +288,30 @@ move_from_ref_reqs! {
 
 pub struct TruthTable<F: BitViewSized>(SparseTree<F>);
 
+impl<F: BitViewSized> TruthTable<F> {
+    pub fn variables(&self) -> Variable {
+        self.0.variables
+    }
+}
+
+impl<F: BitViewSized + Ord> TruthTable<F> {
+    pub fn empty(variables: Variable) -> Self {
+        TruthTable(SparseTree::empty(variables))
+    }
+
+    pub fn push_truth(&mut self, assignment: VectorAssignment<F>) -> bool {
+        self.0.push(assignment)
+    }
+
+    pub fn remove_truth(&mut self, assignment: &VectorAssignment<F>) -> bool {
+        self.0.remove(assignment)
+    }
+
+    pub fn is_true_assignment(&self, assignment: &VectorAssignment<F>) -> bool {
+        self.0.contains(assignment)
+    }
+}
+
 all_from_scalar!(
     BitAnd = TruthTable where F: BitViewSized + Ord => BitAndAssign; bitand := bitand_assign,
     BitOr = TruthTable where F: BitViewSized + Ord + Clone => BitOrAssign; bitor := bitor_assign,
@@ -297,6 +321,18 @@ all_from_scalar!(
 pub struct AlgebraicNormalForm<F: BitViewSized>(SparseTree<F>);
 
 pub type Anf<F> = AlgebraicNormalForm<F>;
+
+impl<F: BitViewSized> AlgebraicNormalForm<F> {
+    pub fn variables(&self) -> Variable {
+        self.0.variables
+    }
+}
+
+impl<F: BitViewSized + Ord> AlgebraicNormalForm<F> {
+    pub fn empty(variables: Variable) -> Self {
+        AlgebraicNormalForm(SparseTree::empty(variables))
+    }
+}
 
 fn bitor_all_elems<F: BitViewSized + Ord + Clone>(lhs: &Anf<F>, rhs: &Anf<F>) -> Anf<F> {
     assert_eq!(lhs.0.variables, rhs.0.variables);
