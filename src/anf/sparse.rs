@@ -194,6 +194,15 @@ impl<F: BitViewSized + Ord> SparseTree<F> {
         self.heap.insert(assignment)
     }
 
+    fn toggle(&mut self, assignment: VectorAssignment<F>) -> bool {
+        if self.remove(&assignment) {
+            true
+        } else {
+            self.push(assignment);
+            false
+        }
+    }
+
     fn remove(&mut self, assignment: &VectorAssignment<F>) -> bool {
         debug_assert!(assignment.is_subset_of(&self.mask));
         self.heap.remove(assignment)
@@ -271,19 +280,17 @@ impl<F: BitViewSized + Ord> BitOr for SparseTree<F> {
     }
 }
 
-impl<F: BitViewSized + Ord> BitXorAssign<&SparseTree<F>> for SparseTree<F> {
+impl<F: BitViewSized + Ord + Clone> BitXorAssign<&SparseTree<F>> for SparseTree<F> {
     fn bitxor_assign(&mut self, rhs: &SparseTree<F>) {
         for assignment in rhs.iter() {
-            if self.heap.contains(assignment) {
-                self.remove(assignment);
-            }
+            self.toggle(assignment.clone());
         }
     }
 }
 
 move_from_ref_reqs! {
     BitAnd = SparseTree where F: BitViewSized + Ord => BitAndAssign; bitand := bitand_assign,
-    BitXor = SparseTree where F: BitViewSized + Ord => BitXorAssign; bitxor := bitxor_assign,
+    BitXor = SparseTree where F: BitViewSized + Ord + Clone => BitXorAssign; bitxor := bitxor_assign,
 }
 
 pub struct TruthTable<F: BitViewSized>(SparseTree<F>);
@@ -315,7 +322,7 @@ impl<F: BitViewSized + Ord> TruthTable<F> {
 all_from_scalar!(
     BitAnd = TruthTable where F: BitViewSized + Ord => BitAndAssign; bitand := bitand_assign,
     BitOr = TruthTable where F: BitViewSized + Ord + Clone => BitOrAssign; bitor := bitor_assign,
-    BitXor = TruthTable where F: BitViewSized + Ord => BitXorAssign; bitxor := bitxor_assign,
+    BitXor = TruthTable where F: BitViewSized + Ord + Clone => BitXorAssign; bitxor := bitxor_assign,
 );
 
 pub struct AlgebraicNormalForm<F: BitViewSized>(SparseTree<F>);
@@ -400,5 +407,5 @@ move_from_ref_reqs! {
 }
 
 all_from_scalar! {
-    BitXor = Anf where F: BitViewSized + Ord => BitXorAssign; bitxor := bitxor_assign,
+    BitXor = Anf where F: BitViewSized + Ord + Clone => BitXorAssign; bitxor := bitxor_assign,
 }
