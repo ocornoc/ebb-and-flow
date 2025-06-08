@@ -1,6 +1,5 @@
 use std::collections::BTreeSet;
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not};
-
 use bitvec::array::BitArray;
 use bitvec::view::BitViewSized;
 
