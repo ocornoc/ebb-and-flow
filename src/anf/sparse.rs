@@ -9,8 +9,8 @@ const FUNDAMENTAL_ARRAY_LEN: usize = 384 / (Fundamental::BITS / u8::BITS) as usi
 type MintermRepr<F> = BitArray<F>;
 type AesMinterm = VectorAssignment<[Fundamental; FUNDAMENTAL_ARRAY_LEN]>;
 
-#[derive(Debug, Clone)]
-struct VectorAssignment<F: BitViewSized>(MintermRepr<F>);
+#[derive(Debug, Clone, Copy)]
+pub struct VectorAssignment<F: BitViewSized>(pub MintermRepr<F>);
 
 impl<F: BitViewSized> VectorAssignment<F> {
     pub fn none() -> Self {
