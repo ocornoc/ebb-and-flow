@@ -298,20 +298,7 @@ pub struct AlgebraicNormalForm<F: BitViewSized>(SparseTree<F>);
 
 pub type Anf<F> = AlgebraicNormalForm<F>;
 
-impl<F: BitViewSized + Ord + Clone> BitAndAssign<&Anf<F>> for Anf<F> {
-    fn bitand_assign(&mut self, rhs: &Anf<F>) {
-        assert_eq!(self.0.variables, rhs.0.variables);
-        let mut new = AlgebraicNormalForm(SparseTree::empty(self.0.variables));
-        for left in self.0.heap.iter() {
-            for right in rhs.0.heap.iter() {
-                new.0.push(left.clone() | right);
-            }
-        }
-        *self = new;
-    }
-}
-
-fn bitor_assign_except_rhs<F: BitViewSized + Ord + Clone>(lhs: &mut Anf<F>, rhs: &Anf<F>) {
+fn bitor_all_elems<F: BitViewSized + Ord + Clone>(lhs: &Anf<F>, rhs: &Anf<F>) -> Anf<F> {
     assert_eq!(lhs.0.variables, rhs.0.variables);
     let mut new = AlgebraicNormalForm(SparseTree::empty(lhs.0.variables));
     for left in lhs.0.heap.iter() {
@@ -319,7 +306,17 @@ fn bitor_assign_except_rhs<F: BitViewSized + Ord + Clone>(lhs: &mut Anf<F>, rhs:
             new.0.push(left.clone() | right);
         }
     }
-    lhs.0.heap.append(&mut new.0.heap);
+    new
+}
+
+impl<F: BitViewSized + Ord + Clone> BitAndAssign<&Anf<F>> for Anf<F> {
+    fn bitand_assign(&mut self, rhs: &Anf<F>) {
+        *self = bitor_all_elems(self, rhs);
+    }
+}
+
+fn bitor_assign_except_rhs<F: BitViewSized + Ord + Clone>(lhs: &mut Anf<F>, rhs: &Anf<F>) {
+    lhs.0.heap.append(&mut bitor_all_elems(lhs, rhs).0.heap);
 }
 
 impl<F: BitViewSized + Ord + Clone> BitOrAssign<&Anf<F>> for Anf<F> {
