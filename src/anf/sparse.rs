@@ -24,7 +24,7 @@ impl<F: BitViewSized> VectorAssignment<F> {
 }
 
 macro_rules! move_from_ref_reqs {
-    ($($move:tt = $scalar:ident $(needing F: $req0:ident $(+ $reqs:ident)*)? => $assign:tt ; $move_fn:ident := $assign_fn:ident),* $(,)?) => {
+    ($($move:tt = $scalar:ident $(where F: $req0:ident $(+ $reqs:ident)*)? => $assign:tt ; $move_fn:ident := $assign_fn:ident),* $(,)?) => {
         $(
             impl<F: $($req0 $(+ $reqs)*)?> $assign<$scalar<F>> for $scalar<F> {
                 #[inline]
@@ -67,7 +67,7 @@ macro_rules! move_from_ref_reqs {
 }
 
 macro_rules! all_from_scalar {
-    ($($move:tt = $scalar:ident needing F: $req0:ident $(+ $reqs:ident)* => $assign:tt ; $move_fn:ident := $assign_fn:ident),* $(,)?) => {
+    ($($move:tt = $scalar:ident where F: $req0:ident $(+ $reqs:ident)* => $assign:tt ; $move_fn:ident := $assign_fn:ident),* $(,)?) => {
         $(
             impl<F: $req0 $(+ $reqs)*> $assign<&$scalar<F>> for $scalar<F> {
                 #[inline]
@@ -76,12 +76,12 @@ macro_rules! all_from_scalar {
                 }
             }
 
-            move_from_ref_reqs!($move = $scalar needing F: $req0 $(+ $reqs)* => $assign ; $move_fn := $assign_fn);
+            move_from_ref_reqs!($move = $scalar where F: $req0 $(+ $reqs)* => $assign ; $move_fn := $assign_fn);
         )*
     };
     ($($move:tt = $scalar:ident => $assign:tt ; $move_fn:ident := $assign_fn:ident),* $(,)?) => {
         $(
-            all_from_scalar!($move = $scalar needing F: BitViewSized => $assign ; $move_fn := $assign_fn);
+            all_from_scalar!($move = $scalar where F: BitViewSized => $assign ; $move_fn := $assign_fn);
         )*
     };
 }
@@ -283,16 +283,16 @@ impl<F: BitViewSized + Ord> BitXorAssign<&SparseTree<F>> for SparseTree<F> {
 }
 
 move_from_ref_reqs! {
-    BitAnd = SparseTree needing F: BitViewSized + Ord => BitAndAssign; bitand := bitand_assign,
-    BitXor = SparseTree needing F: BitViewSized + Ord => BitXorAssign; bitxor := bitxor_assign,
+    BitAnd = SparseTree where F: BitViewSized + Ord => BitAndAssign; bitand := bitand_assign,
+    BitXor = SparseTree where F: BitViewSized + Ord => BitXorAssign; bitxor := bitxor_assign,
 }
 
 pub struct TruthTable<F: BitViewSized>(SparseTree<F>);
 
 all_from_scalar!(
-    BitAnd = TruthTable needing F: BitViewSized + Ord => BitAndAssign; bitand := bitand_assign,
-    BitOr = TruthTable needing F: BitViewSized + Ord + Clone => BitOrAssign; bitor := bitor_assign,
-    BitXor = TruthTable needing F: BitViewSized + Ord => BitXorAssign; bitxor := bitxor_assign,
+    BitAnd = TruthTable where F: BitViewSized + Ord => BitAndAssign; bitand := bitand_assign,
+    BitOr = TruthTable where F: BitViewSized + Ord + Clone => BitOrAssign; bitor := bitor_assign,
+    BitXor = TruthTable where F: BitViewSized + Ord => BitXorAssign; bitxor := bitxor_assign,
 );
 
 pub struct AlgebraicNormalForm<F: BitViewSized>(SparseTree<F>);
@@ -364,9 +364,9 @@ impl<F: BitViewSized + Ord + Clone> BitOr<Anf<F>> for &Anf<F> {
 }
 
 move_from_ref_reqs! {
-    BitAnd = Anf needing F: BitViewSized + Ord + Clone => BitAndAssign; bitand := bitand_assign,
+    BitAnd = Anf where F: BitViewSized + Ord + Clone => BitAndAssign; bitand := bitand_assign,
 }
 
 all_from_scalar! {
-    BitXor = Anf needing F: BitViewSized + Ord => BitXorAssign; bitxor := bitxor_assign,
+    BitXor = Anf where F: BitViewSized + Ord => BitXorAssign; bitxor := bitxor_assign,
 }
