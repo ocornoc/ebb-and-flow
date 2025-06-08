@@ -189,14 +189,14 @@ impl<F: BitViewSized + Ord> SparseTree<F> {
         }
     }
 
-    fn push(&mut self, assignment: VectorAssignment<F>) {
+    fn push(&mut self, assignment: VectorAssignment<F>) -> bool {
         debug_assert!(assignment.is_subset_of(&self.mask));
-        self.heap.insert(assignment);
+        self.heap.insert(assignment)
     }
 
-    fn remove(&mut self, assignment: &VectorAssignment<F>) {
+    fn remove(&mut self, assignment: &VectorAssignment<F>) -> bool {
         debug_assert!(assignment.is_subset_of(&self.mask));
-        self.heap.remove(assignment);
+        self.heap.remove(assignment)
     }
 
     fn contains(&self, assignment: &VectorAssignment<F>) -> bool {
