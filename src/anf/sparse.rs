@@ -20,6 +20,10 @@ impl<F: BitViewSized> VectorAssignment<F> {
     pub fn is_subset_of(&self, mask: &Self) -> bool {
         self.0.contains(&mask.0)
     }
+
+    pub fn live_variables(&self) -> usize {
+        self.0.count_ones()
+    }
 }
 
 macro_rules! move_from_ref_reqs {
@@ -218,6 +222,20 @@ impl<F: BitViewSized + Ord> SparseTree<F> {
     }
 }
 
+impl<F: BitViewSized + Ord + Clone> SparseTree<F> {
+    fn reduce_or(&self) -> VectorAssignment<F> {
+        self
+            .iter()
+            .cloned()
+            .reduce(|acc, assignment| acc | assignment)
+            .unwrap_or(VectorAssignment::none())
+    }
+
+    fn live_variables(&self) -> usize {
+        self.reduce_or().live_variables()
+    }
+}
+
 impl<'tree, F: BitViewSized> IntoIterator for SparseTree<F> {
     type Item = VectorAssignment<F>;
     type IntoIter = std::collections::btree_set::IntoIter<VectorAssignment<F>>;
@@ -319,6 +337,12 @@ impl<F: BitViewSized + Ord> TruthTable<F> {
     }
 }
 
+impl<F: BitViewSized + Ord + Clone> TruthTable<F> {
+    pub fn live_variables(&self) -> usize {
+        self.0.live_variables()
+    }
+}
+
 all_from_scalar!(
     BitAnd = TruthTable where F: BitViewSized + Ord => BitAndAssign; bitand := bitand_assign,
     BitOr = TruthTable where F: BitViewSized + Ord + Clone => BitOrAssign; bitor := bitor_assign,
@@ -338,6 +362,12 @@ impl<F: BitViewSized> AlgebraicNormalForm<F> {
 impl<F: BitViewSized + Ord> AlgebraicNormalForm<F> {
     pub fn empty(variables: Variable) -> Self {
         AlgebraicNormalForm(SparseTree::empty(variables))
+    }
+}
+
+impl<F: BitViewSized + Ord + Clone> AlgebraicNormalForm<F> {
+    pub fn live_variables(&self) -> usize {
+        self.0.live_variables()
     }
 }
 
