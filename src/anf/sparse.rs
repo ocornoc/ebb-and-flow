@@ -86,11 +86,11 @@ macro_rules! all_from_scalar {
     };
 }
 
-all_from_scalar!(
+all_from_scalar! {
     BitAnd = VectorAssignment => BitAndAssign; bitand := bitand_assign,
     BitOr = VectorAssignment => BitOrAssign; bitor := bitor_assign,
     BitXor = VectorAssignment => BitXorAssign; bitxor := bitxor_assign,
-);
+}
 
 impl<F: BitViewSized> Not for VectorAssignment<F> {
     type Output = Self;
@@ -367,6 +367,6 @@ move_from_ref_reqs! {
     BitAnd = Anf needing F: BitViewSized + Ord + Clone => BitAndAssign; bitand := bitand_assign,
 }
 
-all_from_scalar!(
+all_from_scalar! {
     BitXor = Anf needing F: BitViewSized + Ord => BitXorAssign; bitxor := bitxor_assign,
-);
+}
