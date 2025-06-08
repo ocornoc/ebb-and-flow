@@ -7,7 +7,7 @@ use bitvec::view::BitViewSized;
 type Fundamental = u64;
 const FUNDAMENTAL_ARRAY_LEN: usize = 384 / (Fundamental::BITS / u8::BITS) as usize;
 
-type MintermRepr<F: BitViewSized> = BitArray<F>;
+type MintermRepr<F> = BitArray<F>;
 type AesMinterm = VectorAssignment<[Fundamental; FUNDAMENTAL_ARRAY_LEN]>;
 
 #[derive(Debug, Clone)]
