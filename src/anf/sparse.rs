@@ -18,11 +18,29 @@ impl<F: BitViewSized> VectorAssignment<F> {
     }
 
     pub fn is_subset_of(&self, mask: &Self) -> bool {
-        self.0.contains(&mask.0)
+        mask.is_superset_of(self)
+    }
+
+    pub fn is_superset_of(&self, other: &Self) -> bool {
+        self.0.contains(&other.0)
+    }
+
+    pub fn contains(&self, variable: Variable) -> bool {
+        self.0.get(variable as usize).is_some_and(|entry| *entry)
     }
 
     pub fn live_variables(&self) -> usize {
         self.0.count_ones()
+    }
+
+    pub fn set(&mut self, variable: Variable, value: bool) {
+        self.0.set(variable as usize, value)
+    }
+
+    pub fn singular(variable: Variable) -> Self {
+        let mut out = VectorAssignment::none();
+        out.set(variable, true);
+        out
     }
 }
 
@@ -169,6 +187,7 @@ impl<F: BitViewSized + Ord> Ord for VectorAssignment<F> {
 
 type Variable = u16;
 
+#[derive(Clone)]
 struct SparseTree<F: BitViewSized> {
     variables: Variable,
     mask: Box<VectorAssignment<F>>,
@@ -193,18 +212,13 @@ impl<F: BitViewSized + Ord> SparseTree<F> {
         }
     }
 
-    fn push(&mut self, assignment: VectorAssignment<F>) -> bool {
+    /// Inserts a new element in to the sparse tree.
+    ///
+    /// Returns `true` when the assignment was newly inserted; i.e., it was not a member of the tree
+    /// before this call.
+    fn insert(&mut self, assignment: VectorAssignment<F>) -> bool {
         debug_assert!(assignment.is_subset_of(&self.mask));
         self.heap.insert(assignment)
-    }
-
-    fn toggle(&mut self, assignment: VectorAssignment<F>) -> bool {
-        if self.remove(&assignment) {
-            true
-        } else {
-            self.push(assignment);
-            false
-        }
     }
 
     fn remove(&mut self, assignment: &VectorAssignment<F>) -> bool {
@@ -220,6 +234,16 @@ impl<F: BitViewSized + Ord> SparseTree<F> {
     fn iter(&self) -> <&SparseTree<F> as IntoIterator>::IntoIter {
         self.into_iter()
     }
+
+    fn from_assignments(
+        variables: Variable,
+        assignments: impl IntoIterator<Item = VectorAssignment<F>>,
+    ) -> Self {
+        SparseTree {
+            heap: BTreeSet::from_iter(assignments),
+            ..Self::empty(variables)
+        }
+    }
 }
 
 impl<F: BitViewSized + Ord + Clone> SparseTree<F> {
@@ -233,6 +257,50 @@ impl<F: BitViewSized + Ord + Clone> SparseTree<F> {
 
     fn live_variables(&self) -> usize {
         self.reduce_or().live_variables()
+    }
+
+    fn toggle(&mut self, assignment: &VectorAssignment<F>) -> bool {
+        if self.insert(assignment.clone()) {
+            true
+        } else {
+            self.remove(assignment)
+        }
+    }
+
+    #[must_use]
+    fn swap_variables(&self, mut v1: Variable, mut v2: Variable) -> Self {
+        if v1 == v2 {
+            return self.clone();
+        }
+        (v1, v2) = (v1.min(v2), v1.max(v2));
+        let first_v1_possible = VectorAssignment::singular(v1);
+        let first_v2_possible = VectorAssignment::singular(v2);
+        let both_possible = first_v1_possible.clone() | &first_v2_possible;
+        let mut out = Self::from_assignments(
+            self.variables,
+            self.heap.range(..&first_v1_possible).cloned(),
+        );
+        for assignment in self.heap.range(&first_v1_possible..&first_v2_possible).cloned() {
+            out.insert(if assignment.contains(v1) {
+                assignment ^ &both_possible
+            } else {
+                assignment
+            });
+        }
+        for assignment in self.heap.range(&first_v2_possible..&both_possible).cloned() {
+            out.insert(if assignment.contains(v1) || assignment.contains(v2) {
+                assignment ^ &both_possible
+            } else {
+                assignment
+            });
+        }
+        for assignment in self.heap.range(&both_possible..).cloned() {
+            out.insert(match (assignment.contains(v1), assignment.contains(v2)) {
+                (true, true) | (false, false) => assignment,
+                (true, false) | (false, true) => assignment ^ &both_possible,
+            });
+        }
+        out
     }
 }
 
@@ -301,7 +369,7 @@ impl<F: BitViewSized + Ord> BitOr for SparseTree<F> {
 impl<F: BitViewSized + Ord + Clone> BitXorAssign<&SparseTree<F>> for SparseTree<F> {
     fn bitxor_assign(&mut self, rhs: &SparseTree<F>) {
         for assignment in rhs.iter() {
-            self.toggle(assignment.clone());
+            self.toggle(assignment);
         }
     }
 }
@@ -324,22 +392,49 @@ impl<F: BitViewSized + Ord> TruthTable<F> {
         TruthTable(SparseTree::empty(variables))
     }
 
-    pub fn push_truth(&mut self, assignment: VectorAssignment<F>) -> bool {
-        self.0.push(assignment)
+    pub fn insert(&mut self, assignment: VectorAssignment<F>) -> bool {
+        self.0.insert(assignment)
     }
 
-    pub fn remove_truth(&mut self, assignment: &VectorAssignment<F>) -> bool {
+    pub fn remove(&mut self, assignment: &VectorAssignment<F>) -> bool {
         self.0.remove(assignment)
     }
 
-    pub fn is_true_assignment(&self, assignment: &VectorAssignment<F>) -> bool {
+    pub fn evaluate(&self, assignment: &VectorAssignment<F>) -> bool {
         self.0.contains(assignment)
+    }
+
+    #[inline]
+    pub fn modify_assignment(
+        &mut self,
+        assignment: VectorAssignment<F>,
+        f: impl FnOnce(bool) -> bool,
+    ) -> bool {
+        // optimize to use feat(btree_set_entry) when stabilized
+        if f(self.0.heap.contains(&assignment)) {
+            self.insert(assignment)
+        } else {
+            self.remove(&assignment)
+        }
+    }
+
+    pub fn set_assignment(&mut self, assignment: VectorAssignment<F>, present: bool) -> bool {
+        self.modify_assignment(assignment, |_| present)
     }
 }
 
 impl<F: BitViewSized + Ord + Clone> TruthTable<F> {
     pub fn live_variables(&self) -> usize {
         self.0.live_variables()
+    }
+
+    pub fn toggle(&mut self, assignment: &VectorAssignment<F>) -> bool {
+        self.0.toggle(assignment)
+    }
+
+    #[must_use]
+    pub fn swap_variables(&self, v1: Variable, v2: Variable) -> Self {
+        TruthTable(self.0.swap_variables(v1, v2))
     }
 }
 
@@ -349,6 +444,7 @@ all_from_scalar!(
     BitXor = TruthTable where F: BitViewSized + Ord + Clone => BitXorAssign; bitxor := bitxor_assign,
 );
 
+#[derive(Clone)]
 pub struct AlgebraicNormalForm<F: BitViewSized>(SparseTree<F>);
 
 pub type Anf<F> = AlgebraicNormalForm<F>;
@@ -369,6 +465,61 @@ impl<F: BitViewSized + Ord + Clone> AlgebraicNormalForm<F> {
     pub fn live_variables(&self) -> usize {
         self.0.live_variables()
     }
+
+    pub fn insert(&mut self, assignment: VectorAssignment<F>) -> bool {
+        self.0.insert(assignment)
+    }
+
+    pub fn remove(&mut self, assignment: &VectorAssignment<F>) -> bool {
+        self.0.remove(&assignment)
+    }
+
+    pub fn toggle(&mut self, assignment: &VectorAssignment<F>) -> bool {
+        self.0.toggle(assignment)
+    }
+
+    pub fn contains(&self, assignment: &VectorAssignment<F>) -> bool {
+        self.0.contains(assignment)
+    }
+
+    #[inline]
+    pub fn modify_assignment(
+        &mut self,
+        assignment: VectorAssignment<F>,
+        f: impl FnOnce(bool) -> bool,
+    ) -> bool {
+        // optimize to use feat(btree_set_entry) when stabilized
+        if f(self.contains(&assignment)) {
+            self.insert(assignment)
+        } else {
+            self.remove(&assignment)
+        }
+    }
+
+    pub fn set_assignment(&mut self, assignment: VectorAssignment<F>, present: bool) -> bool {
+        self.modify_assignment(assignment, |_| present)
+    }
+
+    pub fn evaluate(&self, assignment: &VectorAssignment<F>) -> bool {
+        self
+            .0
+            .heap
+            .range(..=assignment)
+            .filter(|other| assignment.is_superset_of(other))
+            .count() % 2 == 1
+    }
+
+    pub fn from_assignments(
+        variables: Variable,
+        assignments: impl IntoIterator<Item = VectorAssignment<F>>,
+    ) -> Self {
+        AlgebraicNormalForm(SparseTree::from_assignments(variables, assignments))
+    }
+
+    #[must_use]
+    pub fn swap_variables(&self, v1: Variable, v2: Variable) -> Self {
+        AlgebraicNormalForm(self.0.swap_variables(v1, v2))
+    }
 }
 
 fn bitor_all_elems<F: BitViewSized + Ord + Clone>(lhs: &Anf<F>, rhs: &Anf<F>) -> Anf<F> {
@@ -376,7 +527,7 @@ fn bitor_all_elems<F: BitViewSized + Ord + Clone>(lhs: &Anf<F>, rhs: &Anf<F>) ->
     let mut new = AlgebraicNormalForm(SparseTree::empty(lhs.0.variables));
     for left in lhs.0.heap.iter() {
         for right in rhs.0.heap.difference(&lhs.0.heap) {
-            new.0.push(left.clone() | right);
+            new.0.insert(left.clone() | right);
         }
     }
     new
