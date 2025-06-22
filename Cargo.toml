@@ -1,5 +1,5 @@
 [package]
-name = "aesdiff-movie"
+name = "ebb-and-flow"
 version = "0.1.0"
 edition = "2024"
 
@@ -11,5 +11,5 @@ lto = "fat"
 codegen-units = 1
 
 [dependencies]
-bitvec = "1.0.1"
+bitvec = { version = "1.0.1", default-features = false, features = ["std"] }
 # fixed = "1.29.0"

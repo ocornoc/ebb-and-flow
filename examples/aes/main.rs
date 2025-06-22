@@ -1,8 +1,5 @@
-use crate::block::U8ANFs;
-
-mod anf;
 mod block;
-//mod key_schedule;
+mod key_schedule;
 mod linear;
 
 /*
@@ -13,8 +10,9 @@ fn mix_byte_0(col: u32) -> u8 {
     ^ byte2
     ^ byte3
 }
-    */
+*/
 
+/* 
 fn sboxes() {
     let sbox_anfs = U8ANFs::sbox();
     for (i, anf) in sbox_anfs.anf.iter().enumerate() {
@@ -41,6 +39,7 @@ fn ids() {
             println!("id bit {bit}: {anf}")
     }
 }
+*/
 
 /*
 fn mix_threads() {
@@ -59,6 +58,7 @@ fn mix_threads() {
 */
 
 fn main() {
+    /*
     ids();
     sboxes();
     for multiple in [2, 3, 9, 11, 13, 14] {
@@ -74,4 +74,5 @@ fn main() {
     block.encrypt(&key_schedule);
     print!("last byte of block:\n{}", block.columns[3].bytes[3]);
     //mix_threads();
+    */
 }

@@ -3,13 +3,6 @@
 version = 4
 
 [[package]]
-name = "aesdiff-movie"
-version = "0.1.0"
-dependencies = [
- "bitvec",
-]
-
-[[package]]
 name = "bitvec"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -19,6 +12,13 @@ dependencies = [
  "radium",
  "tap",
  "wyz",
+]
+
+[[package]]
+name = "ebb-and-flow"
+version = "0.1.0"
+dependencies = [
+ "bitvec",
 ]
 
 [[package]]

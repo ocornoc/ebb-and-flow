@@ -205,7 +205,7 @@ impl U32ANFs {
         self.unrotate_bytes();
     }
 
-    fn id() -> Self {
+    pub fn id() -> Self {
         let id = U8ANFs::id();
         U32ANFs {
             bytes: std::array::from_fn(|_| id.clone()),

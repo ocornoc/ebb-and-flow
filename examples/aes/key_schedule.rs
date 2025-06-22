@@ -1,3 +1,5 @@
+use crate::block::U32ANFs;
+
 pub type RoundKey = crate::block::Block;
 
 const ORIGINAL_KEY_WORDS: usize = 8;
