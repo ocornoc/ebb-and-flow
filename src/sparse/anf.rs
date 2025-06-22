@@ -19,7 +19,7 @@ impl<F: BitViewSized> AlgebraicNormalForm<F> {
     }
 }
 
-impl<F: BitViewSized + Ord> AlgebraicNormalForm<F> {
+impl<F: BitViewSized> AlgebraicNormalForm<F> {
     pub fn empty(variables: Variable) -> Self {
         AlgebraicNormalForm(SparseTree::empty(variables))
     }
@@ -69,7 +69,7 @@ impl<F: BitViewSized + Ord> AlgebraicNormalForm<F> {
     }
 }
 
-impl<F: BitViewSized + Ord + Clone> AlgebraicNormalForm<F> {
+impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
     pub fn live_variables(&self) -> usize {
         self.0.live_variables()
     }
@@ -134,13 +134,13 @@ impl<F: BitViewSized + Ord + Clone> AlgebraicNormalForm<F> {
     }
 }
 
-impl<F: BitViewSized + Ord + Clone> AddAssign<&Anf<F>> for Anf<F> {
+impl<F: BitViewSized + Clone> AddAssign<&Anf<F>> for Anf<F> {
     fn add_assign(&mut self, rhs: &Anf<F>) {
         BitXorAssign::bitxor_assign(self, rhs);
     }
 }
 
-impl<F: BitViewSized + Ord + Clone> BitAndAssign<&Anf<F>> for Anf<F> {
+impl<F: BitViewSized + Clone> BitAndAssign<&Anf<F>> for Anf<F> {
     /// Return `lhs & rhs` as a new ANF.
     ///
     /// Given the algebraic normal form of functions l(x), r(x) : GF\[2]ⁿ -> GF\[2], stored as
@@ -161,7 +161,7 @@ impl<F: BitViewSized + Ord + Clone> BitAndAssign<&Anf<F>> for Anf<F> {
     }
 }
 
-impl<F: BitViewSized + Ord + Clone> BitOrAssign<&Anf<F>> for Anf<F> {
+impl<F: BitViewSized + Clone> BitOrAssign<&Anf<F>> for Anf<F> {
     /// Return `lhs | rhs` as a new ANF.
     ///
     /// Given the algebraic normal form of functions l(x), r(x) : GF\[2]ⁿ -> GF\[2], stored as
@@ -179,7 +179,7 @@ impl<F: BitViewSized + Ord + Clone> BitOrAssign<&Anf<F>> for Anf<F> {
     }
 }
 
-impl<F: BitViewSized + Ord + Clone> BitXorAssign<&Anf<F>> for Anf<F> {
+impl<F: BitViewSized + Clone> BitXorAssign<&Anf<F>> for Anf<F> {
     /// Return `lhs ^ rhs` as a new ANF.
     ///
     /// Given the algebraic normal form of functions l(x), r(x) : GF\[2]ⁿ -> GF\[2], stored as
@@ -194,13 +194,13 @@ impl<F: BitViewSized + Ord + Clone> BitXorAssign<&Anf<F>> for Anf<F> {
 }
 
 move_from_ref_reqs! {
-    Add = Anf where F: BitViewSized + Ord + Clone => AddAssign; add := add_assign,
-    BitAnd = Anf where F: BitViewSized + Ord + Clone => BitAndAssign; bitand := bitand_assign,
-    BitOr = Anf where F: BitViewSized + Ord + Clone => BitOrAssign; bitor := bitor_assign,
-    BitXor = Anf where F: BitViewSized + Ord + Clone => BitXorAssign; bitxor := bitxor_assign,
+    Add = Anf where F: BitViewSized + Clone => AddAssign; add := add_assign,
+    BitAnd = Anf where F: BitViewSized + Clone => BitAndAssign; bitand := bitand_assign,
+    BitOr = Anf where F: BitViewSized + Clone => BitOrAssign; bitor := bitor_assign,
+    BitXor = Anf where F: BitViewSized + Clone => BitXorAssign; bitxor := bitxor_assign,
 }
 
-impl<F: BitViewSized + Ord> IntoIterator for Anf<F> {
+impl<F: BitViewSized> IntoIterator for Anf<F> {
     type Item = VectorAssignment<F>;
     type IntoIter = <SparseTree<F> as IntoIterator>::IntoIter;
 
@@ -209,7 +209,7 @@ impl<F: BitViewSized + Ord> IntoIterator for Anf<F> {
     }
 }
 
-impl<'a, F: BitViewSized + Ord> IntoIterator for &'a Anf<F> {
+impl<'a, F: BitViewSized> IntoIterator for &'a Anf<F> {
     type Item = &'a VectorAssignment<F>;
     type IntoIter = <&'a SparseTree<F> as IntoIterator>::IntoIter;
 
@@ -218,7 +218,7 @@ impl<'a, F: BitViewSized + Ord> IntoIterator for &'a Anf<F> {
     }
 }
 
-impl<F: BitViewSized + Ord + Clone> Not for Anf<F> {
+impl<F: BitViewSized + Clone> Not for Anf<F> {
     type Output = Self;
 
     fn not(mut self) -> Self {

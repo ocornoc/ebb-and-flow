@@ -10,7 +10,7 @@ impl<F: BitViewSized> TruthTable<F> {
     }
 }
 
-impl<F: BitViewSized + Ord> TruthTable<F> {
+impl<F: BitViewSized> TruthTable<F> {
     pub fn empty(variables: Variable) -> Self {
         TruthTable(SparseTree::empty(variables))
     }
@@ -46,7 +46,7 @@ impl<F: BitViewSized + Ord> TruthTable<F> {
     }
 }
 
-impl<F: BitViewSized + Ord + Clone> TruthTable<F> {
+impl<F: BitViewSized + Clone> TruthTable<F> {
     pub fn live_variables(&self) -> usize {
         self.0.live_variables()
     }
@@ -61,25 +61,25 @@ impl<F: BitViewSized + Ord + Clone> TruthTable<F> {
     }
 }
 
-impl<F: BitViewSized + Ord> BitAndAssign<&TruthTable<F>> for TruthTable<F> {
+impl<F: BitViewSized> BitAndAssign<&TruthTable<F>> for TruthTable<F> {
     fn bitand_assign(&mut self, rhs: &TruthTable<F>) {
         self.0.heap.retain(|assignment| rhs.0.contains(assignment));
     }
 }
 
-impl<F: BitViewSized + Ord + Clone> BitOrAssign<&TruthTable<F>> for TruthTable<F> {
+impl<F: BitViewSized + Clone> BitOrAssign<&TruthTable<F>> for TruthTable<F> {
     fn bitor_assign(&mut self, rhs: &TruthTable<F>) {
         self.0.heap.extend(rhs.0.iter().cloned());
     }
 }
 
-impl<F: BitViewSized + Ord> BitOrAssign for TruthTable<F> {
+impl<F: BitViewSized> BitOrAssign for TruthTable<F> {
     fn bitor_assign(&mut self, rhs: Self) {
         self.0.heap.extend(rhs.0.heap);
     }
 }
 
-impl<F: BitViewSized + Ord + Clone> BitOr<&TruthTable<F>> for TruthTable<F> {
+impl<F: BitViewSized + Clone> BitOr<&TruthTable<F>> for TruthTable<F> {
     type Output = Self;
 
     fn bitor(mut self, rhs: &Self) -> Self {
@@ -88,7 +88,7 @@ impl<F: BitViewSized + Ord + Clone> BitOr<&TruthTable<F>> for TruthTable<F> {
     }
 }
 
-impl<F: BitViewSized + Ord + Clone> BitOr<TruthTable<F>> for &TruthTable<F> {
+impl<F: BitViewSized + Clone> BitOr<TruthTable<F>> for &TruthTable<F> {
     type Output = TruthTable<F>;
 
     fn bitor(self, rhs: TruthTable<F>) -> TruthTable<F> {
@@ -96,7 +96,7 @@ impl<F: BitViewSized + Ord + Clone> BitOr<TruthTable<F>> for &TruthTable<F> {
     }
 }
 
-impl<F: BitViewSized + Ord> BitOr for TruthTable<F> {
+impl<F: BitViewSized> BitOr for TruthTable<F> {
     type Output = Self;
 
     fn bitor(mut self, rhs: Self) -> Self {
@@ -105,7 +105,7 @@ impl<F: BitViewSized + Ord> BitOr for TruthTable<F> {
     }
 }
 
-impl<F: BitViewSized + Ord + Clone> BitXorAssign<&TruthTable<F>> for TruthTable<F> {
+impl<F: BitViewSized + Clone> BitXorAssign<&TruthTable<F>> for TruthTable<F> {
     fn bitxor_assign(&mut self, rhs: &TruthTable<F>) {
         for assignment in rhs.0.iter() {
             self.0.flip(assignment);
@@ -114,6 +114,6 @@ impl<F: BitViewSized + Ord + Clone> BitXorAssign<&TruthTable<F>> for TruthTable<
 }
 
 move_from_ref_reqs! {
-    BitAnd = TruthTable where F: BitViewSized + Ord => BitAndAssign; bitand := bitand_assign,
-    BitXor = TruthTable where F: BitViewSized + Ord + Clone => BitXorAssign; bitxor := bitxor_assign,
+    BitAnd = TruthTable where F: BitViewSized => BitAndAssign; bitand := bitand_assign,
+    BitXor = TruthTable where F: BitViewSized + Clone => BitXorAssign; bitxor := bitxor_assign,
 }

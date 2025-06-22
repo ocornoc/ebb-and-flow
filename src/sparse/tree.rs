@@ -9,7 +9,7 @@ pub struct SparseTree<F: BitViewSized> {
     pub heap: BTreeSet<VectorAssignment<F>>,
 }
 
-impl<F: BitViewSized + Ord> SparseTree<F> {
+impl<F: BitViewSized> SparseTree<F> {
     fn make_mask(variables: Variable) -> Box<VectorAssignment<F>> {
         let mut assignment = Box::new(VectorAssignment::none());
         assert!(1 << variables <= assignment.0.len());
@@ -61,7 +61,7 @@ impl<F: BitViewSized + Ord> SparseTree<F> {
     }
 }
 
-impl<F: BitViewSized + Ord + Clone> SparseTree<F> {
+impl<F: BitViewSized + Clone> SparseTree<F> {
     fn reduce_or(&self) -> VectorAssignment<F> {
         self
             .iter()

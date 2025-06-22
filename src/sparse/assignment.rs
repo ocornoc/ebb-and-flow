@@ -106,7 +106,7 @@ impl<F: BitViewSized> Not for VectorAssignment<F> {
     }
 }
 
-impl<F: BitViewSized + PartialEq> PartialEq for VectorAssignment<F> {
+impl<F: BitViewSized> PartialEq for VectorAssignment<F> {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0
@@ -118,9 +118,9 @@ impl<F: BitViewSized + PartialEq> PartialEq for VectorAssignment<F> {
     }
 }
 
-impl<F: BitViewSized + Eq> Eq for VectorAssignment<F> {}
+impl<F: BitViewSized> Eq for VectorAssignment<F> {}
 
-impl<F: BitViewSized + PartialOrd> PartialOrd for VectorAssignment<F> {
+impl<F: BitViewSized> PartialOrd for VectorAssignment<F> {
     #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         self.0.partial_cmp(&other.0)
@@ -147,7 +147,7 @@ impl<F: BitViewSized + PartialOrd> PartialOrd for VectorAssignment<F> {
     }
 }
 
-impl<F: BitViewSized + Ord> Ord for VectorAssignment<F> {
+impl<F: BitViewSized> Ord for VectorAssignment<F> {
     #[inline]
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.0.cmp(&other.0)
