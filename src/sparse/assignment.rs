@@ -14,38 +14,72 @@ pub type AesMinterm = VectorAssignment<[Fundamental; FUNDAMENTAL_ARRAY_LEN]>;
 pub struct VectorAssignment<F: BitViewSized>(pub(super) MintermRepr<F>);
 
 impl<F: BitViewSized> VectorAssignment<F> {
+    /// Create an assignment with no variables.
+    ///
+    /// This often represents a constant term "1". For example, the expression x ⊕ xy ⊕ z may be
+    /// represented with assignments `[001, 011, 100]`. Negating the entire multinomial gives
+    /// 1 ⊕ x ⊕ xy ⊕ z, or `[000, 001, 011, 100]`
     pub const fn none() -> Self {
         VectorAssignment(MintermRepr::ZERO)
     }
 
+    /// Create an assignment with all variables set.
     pub fn all() -> Self {
         !Self::none()
     }
 
+    /// Returns true iff every bit set in `self` is also set in `mask`.
+    ///
+    /// The relation "X is a subset of Y" (X ⊑ Y) respects "X is lexicographically ordered before
+    /// or equal to Y" (X ≤ Y); in other words, X ⊑ Y implies X ≤ Y. This implication is not an
+    /// equivalence: to see this, consider the assignments x (`01`), xy (`11`), and y (`10`). We can
+    /// see x ⊏ xy, y ⊏ xy, and x < y, but it is not true that x ⊑ y and thus {x, y} forms an
+    /// antichain under (⊏).
+    ///
+    /// See also the dual order [`is_superset_of`](Self::is_superset_of).
     pub fn is_subset_of(&self, mask: &Self) -> bool {
         mask.is_superset_of(self)
     }
 
+    /// Returns true iff every bit set in `other` is also set in `self`.
+    ///
+    /// The relation "X is a superset of Y" (X ⊒ Y) respects "X is lexicographically ordered after
+    /// or equal to Y" (X ⊒ Y); in other words, X ⊒ Y implies X ≥ Y. See the documentation of
+    /// [`is_subset_of`](Self::is_subset_of) for a counterexample to equivalence.
+    ///
+    /// See also the dual order [`is_subset_of`](Self::is_subset_of).
     pub fn is_superset_of(&self, other: &Self) -> bool {
         self.0.contains(&other.0)
     }
 
+    /// Returns true iff the assignment contains the given variable.
+    ///
+    /// ### Panics
+    ///
+    /// This function does not panic (unless the associated call to `F` does). When given a variable
+    /// out-of-bounds, this simply returns false.
     pub fn contains(&self, variable: Variable) -> bool {
         self.0.get(variable as usize).is_some_and(|entry| *entry)
     }
 
+    /// Return the number of "live" (contained) variables in the assignment.
     pub fn count_live_variables(&self) -> usize {
         self.0.count_ones()
     }
 
+    /// Set a specific variable to true (contained) or false (not contained) within the assignment.
     pub fn set(&mut self, variable: Variable, value: bool) {
         self.0.set(variable as usize, value)
     }
 
+    /// Set a specific variable to true (contained) or false (not contained) within the assignment,
+    /// returning whether the variable was previously contained or not.
     pub fn replace(&mut self, variable: Variable, value: bool) -> bool {
         self.0.replace(variable as usize, value)
     }
 
+    /// Remove a specific variable from the assignment, returning true iff the variable was actually
+    /// removed (i.e., the variable was previously contained).
     pub fn remove(&mut self, variable: Variable) -> bool {
         self.replace(variable, false)
     }
@@ -69,6 +103,7 @@ impl<F: BitViewSized> VectorAssignment<F> {
         out
     }
 
+    /// Swap the membership of one variable to another.
     pub fn swap_variables(&mut self, v1: Variable, v2: Variable) {
         self.0.swap(v1 as usize, v2 as usize)
     }
