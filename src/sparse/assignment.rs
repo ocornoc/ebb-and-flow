@@ -34,7 +34,7 @@ impl<F: BitViewSized> VectorAssignment<F> {
         self.0.get(variable as usize).is_some_and(|entry| *entry)
     }
 
-    pub fn live_variables(&self) -> usize {
+    pub fn count_live_variables(&self) -> usize {
         self.0.count_ones()
     }
 

@@ -59,21 +59,19 @@ impl<F: BitViewSized> SparseTree<F> {
             ..Self::empty(variables)
         }
     }
-}
 
-impl<F: BitViewSized + Clone> SparseTree<F> {
     fn reduce_or(&self) -> VectorAssignment<F> {
         self
             .iter()
-            .cloned()
-            .reduce(|acc, assignment| acc | assignment)
-            .unwrap_or(VectorAssignment::none())
+            .fold(VectorAssignment::none(), |acc, assignment| acc | assignment)
     }
 
-    pub fn live_variables(&self) -> usize {
-        self.reduce_or().live_variables()
+    pub fn count_live_variables(&self) -> usize {
+        self.reduce_or().count_live_variables()
     }
+}
 
+impl<F: BitViewSized + Clone> SparseTree<F> {
     pub fn flip(&mut self, assignment: &VectorAssignment<F>) -> bool {
         if self.insert(assignment.clone()) {
             true

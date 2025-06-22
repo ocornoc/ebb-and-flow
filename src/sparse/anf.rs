@@ -65,13 +65,13 @@ impl<F: BitViewSized> AlgebraicNormalForm<F> {
             .filter(|other| assignment.is_superset_of(other))
             .count() % 2 == 1
     }
+
+    pub fn count_live_variables(&self) -> usize {
+        self.0.count_live_variables()
+    }
 }
 
 impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
-    pub fn live_variables(&self) -> usize {
-        self.0.live_variables()
-    }
-
     pub fn flip(&mut self, summand: &VectorAssignment<F>) -> bool {
         self.0.flip(summand)
     }
@@ -122,7 +122,7 @@ impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
     pub fn partial_derivative(&self, wrt: Variable) -> Self {
         let variables = self.variables();
         let summands = self.into_iter().cloned().filter_map(|mut assignment| {
-            if assignment.remove(wrt) && assignment.live_variables() == 0 {
+            if assignment.remove(wrt) && assignment.count_live_variables() == 0 {
                 None
             } else {
                 Some(assignment)

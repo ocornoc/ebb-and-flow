@@ -44,13 +44,13 @@ impl<F: BitViewSized> TruthTable<F> {
     pub fn set_assignment(&mut self, assignment: VectorAssignment<F>, present: bool) -> bool {
         self.modify_assignment(assignment, |_| present)
     }
+
+    pub fn count_live_variables(&self) -> usize {
+        self.0.count_live_variables()
+    }
 }
 
 impl<F: BitViewSized + Clone> TruthTable<F> {
-    pub fn live_variables(&self) -> usize {
-        self.0.live_variables()
-    }
-
     pub fn toggle(&mut self, assignment: &VectorAssignment<F>) -> bool {
         self.0.flip(assignment)
     }
