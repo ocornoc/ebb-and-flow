@@ -69,6 +69,10 @@ impl<F: BitViewSized> AlgebraicNormalForm<F> {
     pub fn count_live_variables(&self) -> usize {
         self.0.count_live_variables()
     }
+
+    pub fn iter_summands(&self) -> <&SparseTree<F> as IntoIterator>::IntoIter {
+        self.0.iter()
+    }
 }
 
 impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
@@ -100,10 +104,6 @@ impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
             }
             assignment
         }))
-    }
-
-    pub fn iter_summands(&self) -> <&SparseTree<F> as IntoIterator>::IntoIter {
-        self.0.iter()
     }
 
     pub fn union(&mut self, other: &Self) {
