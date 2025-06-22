@@ -17,9 +17,7 @@ impl<F: BitViewSized> AlgebraicNormalForm<F> {
     pub fn variables(&self) -> Variable {
         self.0.variables
     }
-}
 
-impl<F: BitViewSized> AlgebraicNormalForm<F> {
     pub fn empty(variables: Variable) -> Self {
         AlgebraicNormalForm(SparseTree::empty(variables))
     }
