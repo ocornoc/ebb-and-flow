@@ -115,12 +115,35 @@ impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
         self
     }
 
-    pub fn negate(&mut self) {
+    /// Given a [boolean vector function](AlgebraicNormalForm) f(x), return g(x) := !f(x).
+    pub fn not_assign(&mut self) {
+        // g(x) := !f(x) = 1 ⊕ f(x)
+        // Adding 1 to f(x) is equal to toggling 1's assignment. 1's assignment is equal to the
+        // empty assignment, e.g. is an always-true constant.
         self.flip(&VectorAssignment::none());
     }
 
+    #[inline]
+    pub fn partial_derivative_iter(
+        &self,
+        wrt: Variable,
+    ) -> impl Iterator<Item = VectorAssignment<F>> {
+        self.into_iter().cloned().filter_map(move |mut assignment| {
+            if assignment.remove(wrt) && assignment.count_live_variables() == 0 {
+                None
+            } else {
+                Some(assignment)
+            }
+        })
+    }
+
     pub fn partial_derivative(&self, wrt: Variable) -> Self {
+        Self::from_summands(self.variables(), self.partial_derivative_iter(wrt))
+    }
+
+    pub fn directional_derivative(&self, mut direction: VectorAssignment<F>) -> Self {
         let variables = self.variables();
+        
         let summands = self.into_iter().cloned().filter_map(|mut assignment| {
             if assignment.remove(wrt) && assignment.count_live_variables() == 0 {
                 None
@@ -152,7 +175,12 @@ impl<F: BitViewSized + Clone> BitAndAssign<&Anf<F>> for Anf<F> {
         let mut new = Anf::empty(self.variables());
         for left in self.iter_summands() {
             for right in rhs.iter_summands() {
-                new.flip(&(left.clone() | right));
+                // For every element in the Cartesian product lhs x rhs, we should sum it to the new
+                // vector, e.g. toggle its entry bit. We use .insert() as an optimization here
+                // because the iterators are strictly increasing, so we don't have to worry about
+                // duplicates. In other words, insertion is only correct because every pair here is
+                // unique.
+                new.insert(left.clone() | right);
             }
         }
         *self = new;
@@ -170,7 +198,12 @@ impl<F: BitViewSized + Clone> BitOrAssign<&Anf<F>> for Anf<F> {
         let mut new = Anf::empty(self.variables());
         for left in self.0.heap.union(&rhs.0.heap) {
             for right in self.0.heap.union(&rhs.0.heap) {
-                new.flip(&(left.clone() | right));
+                // For every element in the Cartesian product (lhs ∪ rhs) x (lhs ∪ rhs), we should
+                // sum it to the new vector, e.g. toggle its entry bit. We use .insert() as an
+                // optimization here because the iterators are strictly increasing, so we don't have
+                // to worry about duplicates. In other words, insertion is only correct because
+                // every pair here is unique.
+                new.insert(left.clone() | right);
             }
         }
         *self = new;
@@ -178,13 +211,20 @@ impl<F: BitViewSized + Clone> BitOrAssign<&Anf<F>> for Anf<F> {
 }
 
 impl<F: BitViewSized + Clone> BitXorAssign<&Anf<F>> for Anf<F> {
-    /// Return `lhs ^ rhs` as a new ANF.
+    /// Return `lhs ⊕ rhs` as a new ANF.
     ///
     /// Given the algebraic normal form of functions l(x), r(x) : GF\[2]ⁿ -> GF\[2], stored as
-    /// [Summands](Anf)(l) and [Summands](Anf)(r), this returns out(x) := l(x) ^ r(x) as
-    /// Summands(l ^ r) = Summands(l) △ Summands(r).
+    /// [Summands](Anf)(l) and [Summands](Anf)(r), this returns out(x) := l(x) ⊕ r(x) as
+    /// Summands(l ⊕ r) = Summands(l) △ Summands(r).
     fn bitxor_assign(&mut self, rhs: &Anf<F>) {
         assert_eq!(self.variables(), rhs.variables());
+        // Naively, we should make some empty ANF called "new" and iterate as follows:
+        // for assignment in self.0.heap.symmetric_difference(&rhs.0.heap) {
+        //     new.insert(summand);
+        // }
+        // But we can save the allocation and re-use self by just toggling every element in self by
+        // its containment in rhs. If it's not in rhs, it's the same as self's value. If it is in
+        // rhs, then we must toggle its entry.
         for summand in rhs.iter_summands() {
             self.flip(summand);
         }
@@ -220,7 +260,7 @@ impl<F: BitViewSized + Clone> Not for Anf<F> {
     type Output = Self;
 
     fn not(mut self) -> Self {
-        self.negate();
+        self.not_assign();
         self
     }
 }
