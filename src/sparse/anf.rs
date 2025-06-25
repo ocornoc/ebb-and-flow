@@ -1,6 +1,6 @@
-use std::ops::{Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not};
+use std::{fmt::{Debug, Display}, ops::{Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not}};
 use bitvec::view::BitViewSized;
-use super::{SparseTree, Variable, VectorAssignment};
+use super::{assignment::AndNotIter, SparseTree, Variable, VectorAssignment};
 
 /// A function f : GF\[2]ⁿ -> GF\[2] stored as the summands of the algebraic normal form of f.
 ///
@@ -8,7 +8,7 @@ use super::{SparseTree, Variable, VectorAssignment};
 /// the Mobius transformation φ(f, S) := ⨁ T ≼ S, f(xˢ). We use a sparse representation of the set
 /// of vector assignments (inputs) of f that evaluate φ(f, S) to 1, defined as
 /// Summands(f) := { S | φ(f, S) = 1 }.
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct AlgebraicNormalForm<F: BitViewSized>(SparseTree<F>);
 
 pub type Anf<F> = AlgebraicNormalForm<F>;
@@ -123,35 +123,108 @@ impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
         self.flip(&VectorAssignment::none());
     }
 
-    #[inline]
-    pub fn partial_derivative_iter(
-        &self,
-        wrt: Variable,
-    ) -> impl Iterator<Item = VectorAssignment<F>> {
-        self.into_iter().cloned().filter_map(move |mut assignment| {
-            if assignment.remove(wrt) && assignment.count_live_variables() == 0 {
-                None
-            } else {
-                Some(assignment)
-            }
-        })
-    }
-
+    /// Take the partial derivative of self(x) with respect to a given variable.
+    ///
+    /// ```
+    /// # use ebb_and_flow::sparse::{Anf, Variable, VectorAssignment};
+    /// let f = Anf::from_summands(5, [
+    ///     [0b00000_u8].into(),
+    ///     [0b00010].into(),
+    ///     [0b00100].into(),
+    ///     [0b11000].into(),
+    ///     [0b11101].into(),
+    /// ]);
+    /// assert_eq!(f.partial_derivative(0), Anf::from_summands(5, [
+    ///     [0b11100_u8].into(),
+    /// ]));
+    /// assert_eq!(f.partial_derivative(1), Anf::from_summands(5, [
+    ///     [0b00000_u8].into(),
+    /// ]));
+    /// assert_eq!(f.partial_derivative(2), Anf::from_summands(5, [
+    ///     [0b00000_u8].into(),
+    ///     [0b11001].into(),
+    /// ]));
+    /// assert_eq!(f.partial_derivative(3), Anf::from_summands(5, [
+    ///     [0b10000_u8].into(),
+    ///     [0b10101].into(),
+    /// ]));
+    /// assert_eq!(f.partial_derivative(4), Anf::from_summands(5, [
+    ///     [0b01000_u8].into(),
+    ///     [0b01101].into(),
+    /// ]));
+    /// ```
     pub fn partial_derivative(&self, wrt: Variable) -> Self {
-        Self::from_summands(self.variables(), self.partial_derivative_iter(wrt))
+        self.directional_derivative(&VectorAssignment::singular(wrt))
     }
 
-    pub fn directional_derivative(&self, mut direction: VectorAssignment<F>) -> Self {
-        let variables = self.variables();
-        
-        let summands = self.into_iter().cloned().filter_map(|mut assignment| {
-            if assignment.remove(wrt) && assignment.count_live_variables() == 0 {
-                None
-            } else {
-                Some(assignment)
-            }
-        });
-        Self::from_summands(variables, summands)
+    #[inline]
+    fn directional_derivative_iter<'iter>(
+        &'iter self,
+        direction: &'iter VectorAssignment<F>,
+    ) -> impl Iterator<Item = VectorAssignment<F>> + 'iter {
+        self
+            .iter_summands()
+            .filter(|summand| summand.intersects(direction))
+            .flat_map(move |summand| {
+                let negated_mask = summand.clone() & direction;
+                let unconditional = !direction.clone() & summand;
+                AndNotIter::new(negated_mask, unconditional)
+            })
+    }
+
+    pub fn directional_derivative(&self, direction: &VectorAssignment<F>) -> Self {
+        // The minterms of the multilinear function self(x ⊕ direction)
+        let summands_with_shifted_input = self.directional_derivative_iter(direction);
+        // Derivative wrt direction := filtered(x) ⊕ filtered(x ⊕ direction), where filtered(x) is
+        // self(x) with all summands disjoint from direction removed.
+        Anf::from_summands(
+            self.variables(),
+            self
+                .iter_summands()
+                .filter(|summand| summand.intersects(direction))
+                .cloned()
+                .chain(summands_with_shifted_input),
+        )
+    }
+
+    pub fn homogeneity(&self) -> Self {
+        Anf::from_summands(
+            self.variables(),
+            (0..self.variables())
+                .into_iter()
+                .flat_map(|variable| {
+                    self.partial_derivative(variable) & VectorAssignment::singular(variable)
+                }),
+        )
+    }
+
+    /// Get the divergence of self(x).
+    ///
+    /// ```
+    /// # use ebb_and_flow::sparse::{Anf, Variable, VectorAssignment};
+    /// let f = Anf::from_summands(5, [
+    ///     [0b00000_u8].into(),
+    ///     [0b00010].into(),
+    ///     [0b00100].into(),
+    ///     [0b11000].into(),
+    ///     [0b11101].into(),
+    /// ]);
+    /// assert_eq!(f.divergence(), Anf::from_summands(5, [
+    ///     [0b01000_u8].into(),
+    ///     [0b10000].into(),
+    ///     [0b11100].into(),
+    ///     [0b01101].into(),
+    ///     [0b10101].into(),
+    ///     [0b11001].into(),
+    /// ]));
+    /// ```
+    pub fn divergence(&self) -> Self {
+        Anf::from_summands(
+            self.variables(),
+            (0..self.variables())
+                .into_iter()
+                .flat_map(|variable| self.partial_derivative(variable)),
+        )
     }
 }
 
@@ -238,6 +311,42 @@ move_from_ref_reqs! {
     BitXor = Anf where F: BitViewSized + Clone => BitXorAssign; bitxor := bitxor_assign,
 }
 
+impl<F: BitViewSized + Clone> BitAndAssign<&VectorAssignment<F>> for Anf<F> {
+    fn bitand_assign(&mut self, rhs: &VectorAssignment<F>) {
+        *self = Self::from_summands(
+            self.variables(),
+            self
+                .iter_summands()
+                .cloned()
+                .map(|summand| summand | rhs),
+        );
+    }
+}
+
+impl<F: BitViewSized + Clone> BitAndAssign<VectorAssignment<F>> for Anf<F> {
+    fn bitand_assign(&mut self, rhs: VectorAssignment<F>) {
+        *self &= &rhs;
+    }
+}
+
+impl<F: BitViewSized + Clone> BitAnd<&VectorAssignment<F>> for Anf<F> {
+    type Output = Self;
+
+    fn bitand(mut self, rhs: &VectorAssignment<F>) -> Self {
+        self &= rhs;
+        self
+    }
+}
+
+impl<F: BitViewSized + Clone> BitAnd<VectorAssignment<F>> for Anf<F> {
+    type Output = Self;
+
+    fn bitand(mut self, rhs: VectorAssignment<F>) -> Self {
+        self &= rhs;
+        self
+    }
+}
+
 impl<F: BitViewSized> IntoIterator for Anf<F> {
     type Item = VectorAssignment<F>;
     type IntoIter = <SparseTree<F> as IntoIterator>::IntoIter;
@@ -262,5 +371,26 @@ impl<F: BitViewSized + Clone> Not for Anf<F> {
     fn not(mut self) -> Self {
         self.not_assign();
         self
+    }
+}
+
+impl<F: BitViewSized> Debug for Anf<F> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let mut first = true;
+        for summand in self.iter_summands() {
+            if first {
+                first = false;
+                write!(f, "{summand}")?;
+            } else {
+                write!(f, " ⊕ {summand}")?;
+            }
+        }
+        Ok(())
+    }
+}
+
+impl<F: BitViewSized> Display for Anf<F> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        Debug::fmt(self, f)
     }
 }

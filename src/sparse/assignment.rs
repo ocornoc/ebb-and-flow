@@ -1,3 +1,5 @@
+use std::fmt::{Debug, Display};
+use std::iter::FusedIterator;
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not};
 use bitvec::array::BitArray;
 use bitvec::view::BitViewSized;
@@ -10,7 +12,7 @@ const FUNDAMENTAL_ARRAY_LEN: usize = FUNDAMENTAL_ARRAY_BITS / Fundamental::BITS 
 type MintermRepr<F> = BitArray<F>;
 pub type AesMinterm = VectorAssignment<[Fundamental; FUNDAMENTAL_ARRAY_LEN]>;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct VectorAssignment<F: BitViewSized>(pub(super) MintermRepr<F>);
 
 impl<F: BitViewSized> VectorAssignment<F> {
@@ -49,7 +51,7 @@ impl<F: BitViewSized> VectorAssignment<F> {
     ///
     /// See also the dual order [`is_subset_of`](Self::is_subset_of).
     pub fn is_superset_of(&self, other: &Self) -> bool {
-        self.0.contains(&other.0)
+        other.iter_ones().all(|variable| self.contains(variable))
     }
 
     /// Returns true iff the assignment contains the given variable.
@@ -60,6 +62,14 @@ impl<F: BitViewSized> VectorAssignment<F> {
     /// out-of-bounds, this simply returns false.
     pub fn contains(&self, variable: Variable) -> bool {
         self.0.get(variable as usize).is_some_and(|entry| *entry)
+    }
+
+    pub fn intersects(&self, other: &Self) -> bool {
+        self.0.iter().zip(other.0.iter()).any(|(lhs, rhs)| *lhs && *rhs)
+    }
+
+    pub fn is_disjoint(&self, other: &Self) -> bool {
+        !self.intersects(other)
     }
 
     /// Return the number of "live" (contained) variables in the assignment.
@@ -123,6 +133,35 @@ impl<F: BitViewSized> VectorAssignment<F> {
     /// ```
     pub fn iter_ones(&self) -> impl ExactSizeIterator<Item = Variable> {
         self.0.iter_ones().map(|index| index as Variable)
+    }
+
+    pub fn clear(&mut self) {
+        *self = Self::none();
+    }
+
+    pub fn is_singular(&self) -> bool {
+        let leading_zeros = self.0.leading_zeros();
+        let trailing_zeros = self.0.trailing_zeros();
+        self.0.len() == leading_zeros + trailing_zeros + 1
+    }
+}
+
+impl<F: BitViewSized> Debug for VectorAssignment<F> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        if self.count_live_variables() == 0 {
+            write!(f, "1")
+        } else {
+            for variable in self.iter_ones() {
+                write!(f, "x{variable}")?;
+            }
+            Ok(())
+        }
+    }
+}
+
+impl<F: BitViewSized> Display for VectorAssignment<F> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        Debug::fmt(self, f)
     }
 }
 
@@ -204,8 +243,116 @@ impl<F: BitViewSized> Ord for VectorAssignment<F> {
     }
 }
 
+impl<F: BitViewSized> From<F> for VectorAssignment<F> {
+    fn from(value: F) -> Self {
+        VectorAssignment(BitArray::new(value))
+    }
+}
+
 all_from_scalar! {
     BitAnd = VectorAssignment => BitAndAssign; bitand := bitand_assign,
     BitOr = VectorAssignment => BitOrAssign; bitor := bitor_assign,
     BitXor = VectorAssignment => BitXorAssign; bitxor := bitxor_assign,
 }
+
+#[derive(Debug, Default, PartialEq, Eq)]
+enum AndNotIterState {
+    #[default]
+    NoSubsetsReturnedYet,
+    ReturnedFirstSubset,
+}
+
+pub struct AndNotIter<F: BitViewSized + Clone> {
+    pub(super) negated_mask: VectorAssignment<F>,
+    pub(super) unconditional: VectorAssignment<F>,
+    next_subset_of_negated: VectorAssignment<F>,
+    state: AndNotIterState,
+}
+
+impl<F: BitViewSized + Clone> AndNotIter<F> {
+    pub fn new(
+        negated_mask: VectorAssignment<F>,
+        unconditional: VectorAssignment<F>,
+    ) -> Self {
+        assert!(negated_mask.is_disjoint(&unconditional));
+        AndNotIter {
+            negated_mask,
+            unconditional,
+            next_subset_of_negated: VectorAssignment::none(),
+            state: AndNotIterState::default(),
+        }
+    }
+
+    fn step(&mut self) -> VectorAssignment<F> {
+        // We will end up returning the current subset before modifying it, so clone it now.
+        let original_subset = self.next_subset_of_negated.clone();
+        // We will store the next subset in self.next_subset_of_negated. We clear it so it can be
+        // used as the output of (original_subset + !self.negated_mask + 1) & self.negated_mask.
+        // (original_subset + !self.negated_mask + 1) & self.negated_mask is equivalent to the
+        // classic bit-twiddling version of sub-bitmask enumeration (s - m) & m.
+        self.next_subset_of_negated.clear();
+        let mut carry = true;
+        let next_subset_bits = self.next_subset_of_negated.0.iter_mut();
+        let original_subset_bits = original_subset.0.iter();
+        let negated_mask_bits = self.negated_mask.0.iter();
+        let bit_triples = next_subset_bits.zip(original_subset_bits).zip(negated_mask_bits);
+        // Perform a ripple-carry addition with the carry bit initially set to true to give
+        // next_subset := original_subset + !self.negated_mask + 1
+        for ((mut next_bit, original_bit), mask_bit) in bit_triples {
+            // We must negate the mask bit because we're trying to add !self.negated_mask.
+            let (original_bit, mask_bit) = (*original_bit, !*mask_bit);
+            *next_bit = original_bit ^ mask_bit ^ carry;
+            carry = ((original_bit ^ mask_bit) & carry) | (original_bit & mask_bit);
+        }
+        // If we still have the carry bit set after the addition,
+        if carry {
+            // ... then we've overflowed the backing bit storage. We'll clear the next subset
+            // entirely, which will get detected as a cycle by self.state at the top of the function
+            // and will end the iteration.
+            self.next_subset_of_negated.clear();
+        } else {
+            // Otherwise, it's possible that we've still carried the addition into bits no longer
+            // in self.negated_mask. By performing this AND, we remove those bits. This will
+            // effectively clear self.next_subset_of_negated in that case.
+            self.next_subset_of_negated &= &self.negated_mask;
+        }
+        original_subset | &self.unconditional
+    }
+}
+
+impl<F: BitViewSized + Clone> Debug for AndNotIter<F> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f
+            .debug_struct("AndNotIter")
+            .field("negated_mask", &self.negated_mask)
+            .field("unconditional", &self.unconditional)
+            .field("next_subset_of_negated", &self.next_subset_of_negated)
+            .field("state", &self.state)
+            .finish()
+    }
+}
+
+impl<F: BitViewSized + Clone> Iterator for AndNotIter<F> {
+    type Item = VectorAssignment<F>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.state {
+            // If we haven't returned any subsets yet, then this is the first. This special step
+            // ensures we always return at least one subset: the empty subset. The assignment will
+            // consist of just the unconditional bits when returned.
+            AndNotIterState::NoSubsetsReturnedYet => {
+                self.state = AndNotIterState::ReturnedFirstSubset;
+                Some(self.step())
+            },
+            // If we've returned at least one subset already and the next subset to return is the
+            // empty set, then we've looped back around to the start and thus we're done. This is a
+            // fixed pointed of this iterator and thus, if this branch is reached, it will be fused.
+            _ if self.next_subset_of_negated == VectorAssignment::none() => None,
+            // If we've returned at least one subset already and we haven't looped back around, then
+            // there are more subsets to return.
+            AndNotIterState::ReturnedFirstSubset => Some(self.step()),
+        }
+    }
+}
+
+impl<F: BitViewSized + Clone> FusedIterator for AndNotIter<F> {}

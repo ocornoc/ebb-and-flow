@@ -12,7 +12,7 @@ pub struct SparseTree<F: BitViewSized> {
 impl<F: BitViewSized> SparseTree<F> {
     fn make_mask(variables: Variable) -> Box<VectorAssignment<F>> {
         let mut assignment = Box::new(VectorAssignment::none());
-        assert!(1 << variables <= assignment.0.len());
+        assert!(variables as usize <= assignment.0.len());
         for mut mask_bit in assignment.0.iter_mut().take(variables as usize) {
             *mask_bit = true;
         }
@@ -32,17 +32,26 @@ impl<F: BitViewSized> SparseTree<F> {
     /// Returns `true` when the assignment was newly inserted; i.e., it was not a member of the tree
     /// before this call.
     pub fn insert(&mut self, assignment: VectorAssignment<F>) -> bool {
-        debug_assert!(assignment.is_subset_of(&self.mask));
+        debug_assert!(
+            assignment.is_subset_of(&self.mask),
+            "Assignment {assignment} referenced invalid variables",
+        );
         self.heap.insert(assignment)
     }
 
     pub fn remove(&mut self, assignment: &VectorAssignment<F>) -> bool {
-        debug_assert!(assignment.is_subset_of(&self.mask));
+        debug_assert!(
+            assignment.is_subset_of(&self.mask),
+            "Assignment {assignment} referenced invalid variables",
+        );
         self.heap.remove(assignment)
     }
 
     pub fn contains(&self, assignment: &VectorAssignment<F>) -> bool {
-        debug_assert!(assignment.is_subset_of(&self.mask));
+        debug_assert!(
+            assignment.is_subset_of(&self.mask),
+            "Assignment {assignment} referenced invalid variables",
+        );
         self.heap.contains(assignment)
     }
 
@@ -122,3 +131,15 @@ impl<'tree, F: BitViewSized> IntoIterator for &'tree SparseTree<F> {
         (&self.heap).into_iter()
     }
 }
+
+impl<F: BitViewSized> PartialEq for SparseTree<F> {
+    fn eq(&self, other: &Self) -> bool {
+        self.heap == other.heap
+    }
+
+    fn ne(&self, other: &Self) -> bool {
+        self.heap != other.heap
+    }
+}
+
+impl<F: BitViewSized> Eq for SparseTree<F> {}
