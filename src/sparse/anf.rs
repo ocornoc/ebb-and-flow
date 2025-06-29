@@ -1,4 +1,5 @@
-use std::{fmt::{Debug, Display}, ops::{Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not}};
+use std::fmt::{Debug, Display};
+use std::ops::{Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not};
 use bitvec::view::BitViewSized;
 use super::{assignment::AndNotIter, SparseTree, Variable, VectorAssignment};
 
