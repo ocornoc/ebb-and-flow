@@ -399,7 +399,11 @@ impl<F: BitViewSized> Debug for Anf<F> {
                 write!(f, " ⊕ {summand}")?;
             }
         }
-        Ok(())
+        if first {
+            write!(f, "0")
+        } else {
+            Ok(())
+        }
     }
 }
 
