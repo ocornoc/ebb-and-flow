@@ -1,5 +1,5 @@
 use std::fmt::{Debug, Display};
-use std::ops::{Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not};
+use std::ops::{Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Mul, MulAssign, Not};
 use bitvec::view::BitViewSized;
 use super::{assignment::AndNotIter, SparseTree, Variable, VectorAssignment};
 
@@ -247,20 +247,68 @@ impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
 }
 
 impl<F: BitViewSized + Clone> AddAssign<&Anf<F>> for Anf<F> {
+    /// Addition for algebraic normal forms interpreted as functions in the vector space of
+    /// GF\[2]ⁿ -> GF\[2].
+    ///
+    /// Given that this is definitionally equal to XORing two algebraic normal forms, see the
+    /// documentation at `AlgebraicNormalForm<F>::xor_assign`.
     fn add_assign(&mut self, rhs: &Anf<F>) {
         BitXorAssign::bitxor_assign(self, rhs);
     }
 }
 
+impl<F: BitViewSized + Clone> MulAssign<&Anf<F>> for Anf<F> {
+    /// Multiplication for algebraic normal forms interpreted as functions in the vector space of
+    /// GF\[2]ⁿ -> GF\[2].
+    ///
+    /// Given that this is definitionally equal to ANDing two algebraic normal forms, see the
+    /// documentation at `AlgebraicNormalForm<F>::and_assign`.
+    fn mul_assign(&mut self, rhs: &Anf<F>) {
+        BitAndAssign::bitand_assign(self, rhs);
+    }
+}
+
 impl<F: BitViewSized + Clone> BitAndAssign<&Anf<F>> for Anf<F> {
-    /// Return `lhs & rhs` as a new ANF.
+    /// Return lhs & rhs as a new ANF.
     ///
     /// Given the algebraic normal form of functions l(x), r(x) : GF\[2]ⁿ -> GF\[2], stored as
     /// [Summands](Anf)(l) and [Summands](Anf)(r), this returns out(x) := l(x) & r(x) as
     /// Summands(l & r) = { (left | right) | (left, right) ∈ l x r }. Using (left | right) instead
     /// of (left & right) may be unintuitive but is correct as (left | right) represents an
-    /// assignment where all assignments in left and all assignments in right must be
-    /// simultaneously true. This is calculated as a bitwise or of their representations to give us left ∧ right.
+    /// assignment where all assignments in left and all assignments in right must be simultaneously
+    /// true. This is calculated as a bitwise or of their representations to give us left ∧ right.
+    ///
+    /// ```
+    /// # use ebb_and_flow::sparse::{Anf, Variable, VectorAssignment};
+    /// // (0 : Anf<F>) & (0 : Anf<F>) == (0 : Anf<F>)
+    /// assert_eq!(Anf::<[u32; 1]>::empty(8) & Anf::empty(8), Anf::empty(8));
+    ///
+    /// # const VARIABLES: Variable = 3;
+    /// let number_of_scalars = 1_u32.checked_shl(VARIABLES as u32).unwrap();
+    /// let number_of_anfs = 1_u32.checked_shl(number_of_scalars).unwrap();
+    /// let zero = Anf::<[u32; 1]>::empty(VARIABLES);
+    /// let one = Anf::<[u32; 1]>::one(VARIABLES);
+    /// for mut anf_code in 0..number_of_anfs {
+    ///     let mut anf = Anf::empty(VARIABLES);
+    ///     while anf_code > 0 {
+    ///         anf.insert([anf_code & (number_of_scalars - 1)].into());
+    ///         anf_code >>= VARIABLES as u32;
+    ///     }
+    ///     // Any element v : ANF<F> aka GF[2]ⁿ -> 2 multiplied by zero is zero.
+    ///     assert_eq!(zero.clone() & &anf, zero);
+    ///     // Any element v : ANF<F> aka GF[2]ⁿ -> 2 multiplied by one is itself.
+    ///     assert_eq!(one.clone() & &anf, anf);
+    ///     for mut rhs_anf_code in 0..number_of_anfs {
+    ///         let mut rhs_anf = Anf::empty(VARIABLES);
+    ///         while rhs_anf_code > 0 {
+    ///             rhs_anf.insert([rhs_anf_code & (number_of_scalars - 1)].into());
+    ///             rhs_anf_code >>= VARIABLES as u32;
+    ///         }
+    ///         // Bitand is commutative.
+    ///         assert_eq!(anf.clone() & &rhs_anf, rhs_anf & anf.clone());
+    ///     }
+    /// }
+    /// ```
     fn bitand_assign(&mut self, rhs: &Anf<F>) {
         assert_eq!(self.variables(), rhs.variables());
         let mut new = Anf::empty(self.variables());
@@ -279,11 +327,44 @@ impl<F: BitViewSized + Clone> BitAndAssign<&Anf<F>> for Anf<F> {
 }
 
 impl<F: BitViewSized + Clone> BitOrAssign<&Anf<F>> for Anf<F> {
-    /// Return `lhs | rhs` as a new ANF.
+    /// Return lhs | rhs as a new ANF.
     ///
     /// Given the algebraic normal form of functions l(x), r(x) : GF\[2]ⁿ -> GF\[2], stored as
     /// [Summands](Anf)(l) and [Summands](Anf)(r), this returns out(x) := l(x) | r(x) as
     /// Summands(l | r) = { (left | right) | left, right ∈ l ∪ r }.
+    ///
+    /// ```
+    /// # use ebb_and_flow::sparse::{Anf, Variable, VectorAssignment};
+    /// // (0 : Anf<F>) | (0 : Anf<F>) == (0 : Anf<F>)
+    /// assert_eq!(Anf::<[u32; 1]>::empty(8) | Anf::empty(8), Anf::empty(8));
+    ///
+    /// # const VARIABLES: Variable = 3;
+    /// let number_of_scalars = 1_u32.checked_shl(VARIABLES as u32).unwrap();
+    /// let number_of_anfs = 1_u32.checked_shl(number_of_scalars).unwrap();
+    /// let zero = Anf::<[u32; 1]>::empty(VARIABLES);
+    /// for mut anf_code in 0..number_of_anfs {
+    ///     let mut anf = Anf::empty(VARIABLES);
+    ///     while anf_code > 0 {
+    ///         anf.insert([anf_code & (number_of_scalars - 1)].into());
+    ///         anf_code >>= VARIABLES as u32;
+    ///     }
+    ///     // (0 : ANF<F>) | (v : ANF<F>) == v.
+    ///     assert_eq!(zero.clone() | &anf, anf, "zero OR anf == anf");
+    ///     for mut rhs_anf_code in 0..number_of_anfs {
+    ///         let mut rhs_anf = Anf::empty(VARIABLES);
+    ///         while rhs_anf_code > 0 {
+    ///             rhs_anf.insert([rhs_anf_code & (number_of_scalars - 1)].into());
+    ///             rhs_anf_code >>= VARIABLES as u32;
+    ///         }
+    ///         // Bitor is commutative.
+    ///         assert_eq!(
+    ///             anf.clone() | &rhs_anf,
+    ///             rhs_anf | anf.clone(),
+    ///             "anf0 OR anf1 is commutative",
+    ///         );
+    ///     }
+    /// }
+    /// ```
     fn bitor_assign(&mut self, rhs: &Anf<F>) {
         assert_eq!(self.variables(), rhs.variables());
         let mut new = Anf::empty(self.variables());
@@ -294,7 +375,7 @@ impl<F: BitViewSized + Clone> BitOrAssign<&Anf<F>> for Anf<F> {
                 // optimization here because the iterators are strictly increasing, so we don't have
                 // to worry about duplicates. In other words, insertion is only correct because
                 // every pair here is unique.
-                new.insert(left.clone() | right);
+                new.flip(&(left.clone() | right));
             }
         }
         *self = new;
@@ -302,11 +383,45 @@ impl<F: BitViewSized + Clone> BitOrAssign<&Anf<F>> for Anf<F> {
 }
 
 impl<F: BitViewSized + Clone> BitXorAssign<&Anf<F>> for Anf<F> {
-    /// Return `lhs ⊕ rhs` as a new ANF.
+    /// Return lhs ⊕ rhs as a new ANF.
     ///
     /// Given the algebraic normal form of functions l(x), r(x) : GF\[2]ⁿ -> GF\[2], stored as
     /// [Summands](Anf)(l) and [Summands](Anf)(r), this returns out(x) := l(x) ⊕ r(x) as
     /// Summands(l ⊕ r) = Summands(l) △ Summands(r).
+    ///
+    /// ```
+    /// # use ebb_and_flow::sparse::{Anf, Variable, VectorAssignment};
+    /// // (0 : Anf<F>) ⊕ (0 : Anf<F>) == (0 : Anf<F>)
+    /// assert_eq!(Anf::<[u32; 1]>::empty(8) & Anf::empty(8), Anf::empty(8));
+    ///
+    /// # const VARIABLES: Variable = 3;
+    /// let number_of_scalars = 1_u32.checked_shl(VARIABLES as u32).unwrap();
+    /// let number_of_anfs = 1_u32.checked_shl(number_of_scalars).unwrap();
+    /// let zero = Anf::<[u32; 1]>::empty(VARIABLES);
+    /// let one = Anf::<[u32; 1]>::one(VARIABLES);
+    /// for mut anf_code in 0..number_of_anfs {
+    ///     let mut anf = Anf::empty(VARIABLES);
+    ///     while anf_code > 0 {
+    ///         anf.insert([anf_code & (number_of_scalars - 1)].into());
+    ///         anf_code >>= VARIABLES as u32;
+    ///     }
+    ///     // Any element v : ANF<F> aka GF[2]ⁿ -> 2 plus zero is itself.
+    ///     assert_eq!(zero.clone() ^ &anf, anf);
+    ///     // Any element v : ANF<F> aka GF[2]ⁿ -> 2 plus one is not itself.
+    ///     assert_ne!(one.clone() ^ &anf, anf);
+    ///     // Any element v : ANF<F> aka GF[2]ⁿ -> 2 plus one plus one is itself.
+    ///     assert_eq!(one.clone() ^ &anf ^ one.clone(), anf);
+    ///     for mut rhs_anf_code in 0..number_of_anfs {
+    ///         let mut rhs_anf = Anf::empty(VARIABLES);
+    ///         while rhs_anf_code > 0 {
+    ///             rhs_anf.insert([rhs_anf_code & (number_of_scalars - 1)].into());
+    ///             rhs_anf_code >>= VARIABLES as u32;
+    ///         }
+    ///         // Bitxor is commutative.
+    ///         assert_eq!(anf.clone() ^ &rhs_anf, rhs_anf ^ anf.clone());
+    ///     }
+    /// }
+    /// ```
     fn bitxor_assign(&mut self, rhs: &Anf<F>) {
         assert_eq!(self.variables(), rhs.variables());
         // Naively, we should make some empty ANF called "new" and iterate as follows:
@@ -327,9 +442,37 @@ move_from_ref_reqs! {
     BitAnd = Anf where F: BitViewSized + Clone => BitAndAssign; bitand := bitand_assign,
     BitOr = Anf where F: BitViewSized + Clone => BitOrAssign; bitor := bitor_assign,
     BitXor = Anf where F: BitViewSized + Clone => BitXorAssign; bitxor := bitxor_assign,
+    Mul = Anf where F: BitViewSized + Clone => MulAssign; mul := mul_assign,
 }
 
 impl<F: BitViewSized + Clone> BitAndAssign<&VectorAssignment<F>> for Anf<F> {
+    /// Returns lhs & rhs as a new ANF.
+    ///
+    /// ```
+    /// # use ebb_and_flow::sparse::{Anf, Variable, VectorAssignment};
+    /// // (0 : Anf<F>) & (0 : VectorAssignment<F>) == (0 : Anf<F>)
+    /// assert_eq!(Anf::<[u32; 1]>::empty(8) & VectorAssignment::none(), Anf::empty(8));
+    ///
+    /// # const VARIABLES: Variable = 3;
+    /// let number_of_scalars = 1_u32.checked_shl(VARIABLES as u32).unwrap();
+    /// let number_of_anfs = 1_u32.checked_shl(number_of_scalars).unwrap();
+    /// let true_scalar = VectorAssignment::none();
+    /// let zero_anf = Anf::<[u32; 1]>::empty(VARIABLES);
+    /// for mut anf_code in 0..number_of_anfs {
+    ///     // (v : Anf<F>) & (1 : GF[2]ⁿ) == v
+    ///     let mut v = Anf::empty(VARIABLES);
+    ///     while anf_code > 0 {
+    ///         v.insert([anf_code & (number_of_scalars - 1)].into());
+    ///         anf_code >>= VARIABLES as u32;
+    ///     }
+    ///     assert_eq!(v.clone() & &true_scalar, v);
+    /// }
+    /// for scalar in 0..number_of_scalars {
+    ///     // (0 : Anf<F>) & (s : GF[2]ⁿ) == (0 : Anf<F>)
+    ///     let s = Anf::from_summands(VARIABLES, [[scalar].into()]);
+    ///     assert_eq!(zero_anf.clone() & VectorAssignment::default(), zero_anf);
+    /// }
+    /// ```
     fn bitand_assign(&mut self, rhs: &VectorAssignment<F>) {
         *self = Self::from_summands(
             self.variables(),
