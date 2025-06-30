@@ -71,10 +71,23 @@ impl<F: BitViewSized> AlgebraicNormalForm<F> {
         self.0.count_live_variables()
     }
 
+    #[inline]
     pub fn iter_summands(&self) -> <&SparseTree<F> as IntoIterator>::IntoIter {
         self.0.iter()
     }
+
+    #[inline]
+    pub fn iter_intersecting<'iter>(&'iter self, intersectant: &'_ VectorAssignment<F>) ->
+        Intersecting<'iter, F, impl FnMut(&'_ &'iter VectorAssignment<F>) -> bool>
+    {
+        self.iter_summands().filter(|summand| summand.intersects(intersectant))
+    }
 }
+
+pub type Intersecting<'iter, F, Fn> = std::iter::Filter<
+    <&'iter SparseTree<F> as IntoIterator>::IntoIter,
+    Fn,
+>;
 
 impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
     pub fn flip(&mut self, summand: &VectorAssignment<F>) -> bool {
@@ -164,8 +177,7 @@ impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
         direction: &'iter VectorAssignment<F>,
     ) -> impl Iterator<Item = VectorAssignment<F>> + 'iter {
         self
-            .iter_summands()
-            .filter(|summand| summand.intersects(direction))
+            .iter_intersecting(direction)
             .flat_map(move |summand| {
                 let negated_mask = summand.clone() & direction;
                 let unconditional = !direction.clone() & summand;
@@ -181,8 +193,7 @@ impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
         Anf::from_summands(
             self.variables(),
             self
-                .iter_summands()
-                .filter(|summand| summand.intersects(direction))
+                .iter_intersecting(direction)
                 .cloned()
                 .chain(summands_with_shifted_input),
         )
@@ -352,6 +363,7 @@ impl<F: BitViewSized> IntoIterator for Anf<F> {
     type Item = VectorAssignment<F>;
     type IntoIter = <SparseTree<F> as IntoIterator>::IntoIter;
 
+    #[inline]
     fn into_iter(self) -> Self::IntoIter {
         self.0.heap.into_iter()
     }
@@ -361,8 +373,9 @@ impl<'a, F: BitViewSized> IntoIterator for &'a Anf<F> {
     type Item = &'a VectorAssignment<F>;
     type IntoIter = <&'a SparseTree<F> as IntoIterator>::IntoIter;
 
+    #[inline]
     fn into_iter(self) -> Self::IntoIter {
-        (&self.0.heap).into_iter()
+        self.iter_summands()
     }
 }
 
