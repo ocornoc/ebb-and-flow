@@ -34,7 +34,7 @@ impl<F: BitViewSized> SparseTree<F> {
     pub fn insert(&mut self, assignment: VectorAssignment<F>) -> bool {
         debug_assert!(
             assignment.is_subset_of(&self.mask),
-            "Assignment {assignment} referenced invalid variables",
+            "Assignment {assignment} referenced invalid variables, thus cannot be inserted",
         );
         self.heap.insert(assignment)
     }
@@ -42,7 +42,7 @@ impl<F: BitViewSized> SparseTree<F> {
     pub fn remove(&mut self, assignment: &VectorAssignment<F>) -> bool {
         debug_assert!(
             assignment.is_subset_of(&self.mask),
-            "Assignment {assignment} referenced invalid variables",
+            "Assignment {assignment} referenced invalid variables, thus cannot be removed",
         );
         self.heap.remove(assignment)
     }
@@ -50,7 +50,7 @@ impl<F: BitViewSized> SparseTree<F> {
     pub fn contains(&self, assignment: &VectorAssignment<F>) -> bool {
         debug_assert!(
             assignment.is_subset_of(&self.mask),
-            "Assignment {assignment} referenced invalid variables",
+            "Assignment {assignment} referenced invalid variables, thus cannot check containment",
         );
         self.heap.contains(assignment)
     }
