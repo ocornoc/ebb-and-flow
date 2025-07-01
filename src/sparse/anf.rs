@@ -7,8 +7,7 @@ use super::{assignment::AndNotIter, SparseTree, Variable, VectorAssignment};
 ///
 /// Every function f : GF\[2]ⁿ -> GF\[2] can be represented by ⨁ S ⊆ {0, 1}ⁿ, φ(f, S) xˢ where 
 /// the Mobius transformation φ(f, S) := ⨁ T ≼ S, f(xˢ). We use a sparse representation of the set
-/// of vector assignments (inputs) of f that evaluate φ(f, S) to 1, defined as
-/// Summands(f) := { S | φ(f, S) = 1 }.
+/// of minterms of f that evaluate φ(f, S) to 1, defined as Summands(f) := { S | φ(f, S) = 1 }.
 #[derive(Clone, PartialEq, Eq)]
 pub struct AlgebraicNormalForm<F: BitViewSized>(SparseTree<F>);
 
