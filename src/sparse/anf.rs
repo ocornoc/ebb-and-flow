@@ -1,4 +1,5 @@
 use std::fmt::{Debug, Display};
+use std::iter::FusedIterator;
 use std::ops::{Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Mul, MulAssign, Not};
 use bitvec::view::BitViewSized;
 use super::{assignment::AndNotIter, SparseTree, Variable, VectorAssignment};
@@ -82,16 +83,35 @@ impl<F: BitViewSized> AlgebraicNormalForm<F> {
     }
 
     #[inline]
-    pub fn iter_intersecting<'iter>(&'iter self, intersectant: &'_ VectorAssignment<F>) ->
-        Intersecting<'iter, F, impl FnMut(&'_ &'iter VectorAssignment<F>) -> bool>
-    {
+    fn iter_intersecting_aux<'iter>(
+        &'iter self,
+        intersectant: &'_ VectorAssignment<F>,
+    ) -> Intersecting<
+        'iter,
+        F,
+        impl FnMut(&'_ &'iter VectorAssignment<F>) -> bool,
+    > {
         self.iter_summands().filter(|summand| summand.intersects(intersectant))
+    }
+
+    #[inline]
+    pub fn iter_intersecting<'iter>(
+        &'iter self,
+        intersectant: &'_ VectorAssignment<F>,
+    ) -> impl FusedIterator<Item = &'iter VectorAssignment<F>> {
+        self.iter_intersecting_aux(intersectant)
     }
 }
 
-pub type Intersecting<'iter, F, Fn> = std::iter::Filter<
+type Intersecting<'iter, F, Fn> = std::iter::Filter<
     <&'iter SparseTree<F> as IntoIterator>::IntoIter,
     Fn,
+>;
+
+type TranslatedInput<'iter, F, Fn1, Fn2> = std::iter::FlatMap<
+    Intersecting<'iter, F, Fn1>,
+    AndNotIter<F>,
+    Fn2,
 >;
 
 impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
@@ -134,9 +154,9 @@ impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
         self
     }
 
-    /// Given a [boolean vector function](AlgebraicNormalForm) f(x), return g(x) := !f(x).
+    /// Given a [boolean vector function](AlgebraicNormalForm) f(x), return
+    /// g(x) := !f(x) = 1 ⊕ f(x).
     pub fn not_assign(&mut self) {
-        // g(x) := !f(x) = 1 ⊕ f(x)
         // Adding 1 to f(x) is equal to toggling 1's assignment. 1's assignment is equal to the
         // empty assignment, e.g. is an always-true constant.
         self.flip(&VectorAssignment::none());
@@ -177,12 +197,17 @@ impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
     }
 
     #[inline]
-    fn directional_derivative_iter<'iter>(
+    fn with_translated_input_iter_aux<'iter>(
         &'iter self,
         direction: &'iter VectorAssignment<F>,
-    ) -> impl Iterator<Item = VectorAssignment<F>> + 'iter {
+    ) -> TranslatedInput<
+        'iter,
+        F,
+        impl FnMut(&'_ &'iter VectorAssignment<F>) -> bool,
+        impl FnMut(&'iter VectorAssignment<F>) -> AndNotIter<F>,
+    > {
         self
-            .iter_intersecting(direction)
+            .iter_intersecting_aux(direction)
             .flat_map(move |summand| {
                 let negated_mask = summand.clone() & direction;
                 let unconditional = !direction.clone() & summand;
@@ -190,9 +215,17 @@ impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
             })
     }
 
+    #[inline]
+    pub fn with_translated_input_iter<'iter>(
+        &'iter self,
+        direction: &'iter VectorAssignment<F>,
+    ) -> impl FusedIterator<Item = VectorAssignment<F>> {
+        self.with_translated_input_iter_aux(direction)
+    }
+
     pub fn directional_derivative(&self, direction: &VectorAssignment<F>) -> Self {
         // The minterms of the multilinear function self(x ⊕ direction)
-        let summands_with_shifted_input = self.directional_derivative_iter(direction);
+        let summands_with_shifted_input = self.with_translated_input_iter(direction);
         // Derivative wrt direction := filtered(x) ⊕ filtered(x ⊕ direction), where filtered(x) is
         // self(x) with all summands disjoint from direction removed.
         Anf::from_summands(
@@ -215,7 +248,7 @@ impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
         )
     }
 
-    /// Get the divergence of self(x).
+    /// Get the divergence of self(x), which is the sum of all of its partial derivatives.
     ///
     /// ```
     /// # use ebb_and_flow::sparse::{Anf, Variable, VectorAssignment};
@@ -293,9 +326,9 @@ impl<F: BitViewSized + Clone> BitAndAssign<&Anf<F>> for Anf<F> {
     ///         anf.insert([anf_code & (number_of_scalars - 1)].into());
     ///         anf_code >>= VARIABLES as u32;
     ///     }
-    ///     // Any element v : ANF<F> aka GF[2]ⁿ -> 2 multiplied by zero is zero.
+    ///     // Any element v : ANF<F> aka GF[2]ⁿ -> GF[2] multiplied by zero is zero.
     ///     assert_eq!(zero.clone() & &anf, zero);
-    ///     // Any element v : ANF<F> aka GF[2]ⁿ -> 2 multiplied by one is itself.
+    ///     // Any element v : ANF<F> aka GF[2]ⁿ -> GF[2] multiplied by one is itself.
     ///     assert_eq!(one.clone() & &anf, anf);
     ///     for mut rhs_anf_code in 0..number_of_anfs {
     ///         let mut rhs_anf = Anf::empty(VARIABLES);
@@ -370,10 +403,7 @@ impl<F: BitViewSized + Clone> BitOrAssign<&Anf<F>> for Anf<F> {
         for left in self.0.heap.union(&rhs.0.heap) {
             for right in self.0.heap.union(&rhs.0.heap) {
                 // For every element in the Cartesian product (lhs ∪ rhs) x (lhs ∪ rhs), we should
-                // sum it to the new vector, e.g. toggle its entry bit. We use .insert() as an
-                // optimization here because the iterators are strictly increasing, so we don't have
-                // to worry about duplicates. In other words, insertion is only correct because
-                // every pair here is unique.
+                // sum it to the new vector, e.g. toggle its entry bit.
                 new.flip(&(left.clone() | right));
             }
         }
