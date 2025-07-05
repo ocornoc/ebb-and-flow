@@ -301,7 +301,7 @@ impl<F: BitViewSized + Clone> MulAssign<&Anf<F>> for Anf<F> {
 }
 
 impl<F: BitViewSized + Clone> BitAndAssign<&Anf<F>> for Anf<F> {
-    /// Return lhs & rhs as a new ANF.
+    /// Return lhs & rhs in algebraic normal form.
     ///
     /// Given the algebraic normal form of functions l(x), r(x) : GF\[2]ⁿ -> GF\[2], stored as
     /// [Summands](Anf)(l) and [Summands](Anf)(r), this returns out(x) := l(x) & r(x) as
@@ -326,19 +326,10 @@ impl<F: BitViewSized + Clone> BitAndAssign<&Anf<F>> for Anf<F> {
     ///         anf.insert([anf_code & (number_of_scalars - 1)].into());
     ///         anf_code >>= VARIABLES as u32;
     ///     }
-    ///     // Any element v : ANF<F> aka GF[2]ⁿ -> GF[2] multiplied by zero is zero.
+    ///     // Any element v : Anf<F> aka GF[2]ⁿ -> GF[2] multiplied by zero is zero.
     ///     assert_eq!(zero.clone() & &anf, zero);
-    ///     // Any element v : ANF<F> aka GF[2]ⁿ -> GF[2] multiplied by one is itself.
+    ///     // Any element v : Anf<F> aka GF[2]ⁿ -> GF[2] multiplied by one is itself.
     ///     assert_eq!(one.clone() & &anf, anf);
-    ///     for mut rhs_anf_code in 0..number_of_anfs {
-    ///         let mut rhs_anf = Anf::empty(VARIABLES);
-    ///         while rhs_anf_code > 0 {
-    ///             rhs_anf.insert([rhs_anf_code & (number_of_scalars - 1)].into());
-    ///             rhs_anf_code >>= VARIABLES as u32;
-    ///         }
-    ///         // Bitand is commutative.
-    ///         assert_eq!(anf.clone() & &rhs_anf, rhs_anf & anf.clone());
-    ///     }
     /// }
     /// ```
     fn bitand_assign(&mut self, rhs: &Anf<F>) {
@@ -346,11 +337,9 @@ impl<F: BitViewSized + Clone> BitAndAssign<&Anf<F>> for Anf<F> {
         let mut new = Anf::empty(self.variables());
         for left in self.iter_summands() {
             for right in rhs.iter_summands() {
-                // For every element in the Cartesian product lhs x rhs, we should sum it to the new
-                // vector, e.g. toggle its entry bit. We use .insert() as an optimization here
-                // because the iterators are strictly increasing, so we don't have to worry about
-                // duplicates. In other words, insertion is only correct because every pair here is
-                // unique.
+                // For every pair (left, right) in the Cartesian product lhs x rhs, insert the
+                // variable representing "all of left and all of right necessary at once",
+                // represented by BitOring the variable assignment bits.
                 new.insert(left.clone() | right);
             }
         }
@@ -359,7 +348,7 @@ impl<F: BitViewSized + Clone> BitAndAssign<&Anf<F>> for Anf<F> {
 }
 
 impl<F: BitViewSized + Clone> BitOrAssign<&Anf<F>> for Anf<F> {
-    /// Return lhs | rhs as a new ANF.
+    /// Return lhs | rhs in algebraic normal form.
     ///
     /// Given the algebraic normal form of functions l(x), r(x) : GF\[2]ⁿ -> GF\[2], stored as
     /// [Summands](Anf)(l) and [Summands](Anf)(r), this returns out(x) := l(x) | r(x) as
@@ -370,7 +359,7 @@ impl<F: BitViewSized + Clone> BitOrAssign<&Anf<F>> for Anf<F> {
     /// // (0 : Anf<F>) | (0 : Anf<F>) == (0 : Anf<F>)
     /// assert_eq!(Anf::<[u32; 1]>::empty(8) | Anf::empty(8), Anf::empty(8));
     ///
-    /// # const VARIABLES: Variable = 3;
+    /// # const VARIABLES: Variable = 4;
     /// let number_of_scalars = 1_u32.checked_shl(VARIABLES as u32).unwrap();
     /// let number_of_anfs = 1_u32.checked_shl(number_of_scalars).unwrap();
     /// let zero = Anf::<[u32; 1]>::empty(VARIABLES);
@@ -380,31 +369,19 @@ impl<F: BitViewSized + Clone> BitOrAssign<&Anf<F>> for Anf<F> {
     ///         anf.insert([anf_code & (number_of_scalars - 1)].into());
     ///         anf_code >>= VARIABLES as u32;
     ///     }
-    ///     // (0 : ANF<F>) | (v : ANF<F>) == v.
+    ///     // (0 : Anf<F>) | (v : Anf<F>) == v.
     ///     assert_eq!(zero.clone() | &anf, anf, "zero OR anf == anf");
-    ///     for mut rhs_anf_code in 0..number_of_anfs {
-    ///         let mut rhs_anf = Anf::empty(VARIABLES);
-    ///         while rhs_anf_code > 0 {
-    ///             rhs_anf.insert([rhs_anf_code & (number_of_scalars - 1)].into());
-    ///             rhs_anf_code >>= VARIABLES as u32;
-    ///         }
-    ///         // Bitor is commutative.
-    ///         assert_eq!(
-    ///             anf.clone() | &rhs_anf,
-    ///             rhs_anf | anf.clone(),
-    ///             "anf0 OR anf1 is commutative",
-    ///         );
-    ///     }
-    /// }
+    /// }          
     /// ```
     fn bitor_assign(&mut self, rhs: &Anf<F>) {
         assert_eq!(self.variables(), rhs.variables());
-        let mut new = Anf::empty(self.variables());
-        for left in self.0.heap.union(&rhs.0.heap) {
-            for right in self.0.heap.union(&rhs.0.heap) {
+        let mut new = self.clone().unioned(rhs);
+        for left in self.0.heap.iter() {
+            for right in rhs.0.heap.iter() {
                 // For every element in the Cartesian product (lhs ∪ rhs) x (lhs ∪ rhs), we should
-                // sum it to the new vector, e.g. toggle its entry bit.
-                new.flip(&(left.clone() | right));
+                // insert the variable representing "...",
+                // represented by BitAnding the variable assignment bits.
+                new.insert(left.clone() & right);
             }
         }
         *self = new;
@@ -412,7 +389,7 @@ impl<F: BitViewSized + Clone> BitOrAssign<&Anf<F>> for Anf<F> {
 }
 
 impl<F: BitViewSized + Clone> BitXorAssign<&Anf<F>> for Anf<F> {
-    /// Return lhs ⊕ rhs as a new ANF.
+    /// Return lhs ⊕ rhs in algebraic normal form.
     ///
     /// Given the algebraic normal form of functions l(x), r(x) : GF\[2]ⁿ -> GF\[2], stored as
     /// [Summands](Anf)(l) and [Summands](Anf)(r), this returns out(x) := l(x) ⊕ r(x) as
@@ -434,11 +411,11 @@ impl<F: BitViewSized + Clone> BitXorAssign<&Anf<F>> for Anf<F> {
     ///         anf.insert([anf_code & (number_of_scalars - 1)].into());
     ///         anf_code >>= VARIABLES as u32;
     ///     }
-    ///     // Any element v : ANF<F> aka GF[2]ⁿ -> 2 plus zero is itself.
+    ///     // Any element v : Anf<F> aka GF[2]ⁿ -> 2 plus zero is itself.
     ///     assert_eq!(zero.clone() ^ &anf, anf);
-    ///     // Any element v : ANF<F> aka GF[2]ⁿ -> 2 plus one is not itself.
+    ///     // Any element v : Anf<F> aka GF[2]ⁿ -> 2 plus one is not itself.
     ///     assert_ne!(one.clone() ^ &anf, anf);
-    ///     // Any element v : ANF<F> aka GF[2]ⁿ -> 2 plus one plus one is itself.
+    ///     // Any element v : Anf<F> aka GF[2]ⁿ -> 2 plus one plus one is itself.
     ///     assert_eq!(one.clone() ^ &anf ^ one.clone(), anf);
     ///     for mut rhs_anf_code in 0..number_of_anfs {
     ///         let mut rhs_anf = Anf::empty(VARIABLES);
@@ -453,7 +430,7 @@ impl<F: BitViewSized + Clone> BitXorAssign<&Anf<F>> for Anf<F> {
     /// ```
     fn bitxor_assign(&mut self, rhs: &Anf<F>) {
         assert_eq!(self.variables(), rhs.variables());
-        // Naively, we should make some empty ANF called "new" and iterate as follows:
+        // Naively, we should make some empty Anf called "new" and iterate as follows:
         // for assignment in self.0.heap.symmetric_difference(&rhs.0.heap) {
         //     new.insert(summand);
         // }
@@ -475,14 +452,14 @@ move_from_ref_reqs! {
 }
 
 impl<F: BitViewSized + Clone> BitAndAssign<&VectorAssignment<F>> for Anf<F> {
-    /// Returns lhs & rhs as a new ANF.
+    /// Returns lhs & rhs as a new algebraic normal form.
     ///
     /// ```
     /// # use ebb_and_flow::sparse::{Anf, Variable, VectorAssignment};
     /// // (0 : Anf<F>) & (0 : VectorAssignment<F>) == (0 : Anf<F>)
     /// assert_eq!(Anf::<[u32; 1]>::empty(8) & VectorAssignment::none(), Anf::empty(8));
     ///
-    /// # const VARIABLES: Variable = 3;
+    /// # const VARIABLES: Variable = 4;
     /// let number_of_scalars = 1_u32.checked_shl(VARIABLES as u32).unwrap();
     /// let number_of_anfs = 1_u32.checked_shl(number_of_scalars).unwrap();
     /// let true_scalar = VectorAssignment::none();
@@ -560,6 +537,19 @@ impl<'a, F: BitViewSized> IntoIterator for &'a Anf<F> {
 impl<F: BitViewSized + Clone> Not for Anf<F> {
     type Output = Self;
 
+    /// Calculate the logical negation of this boolean vector function.
+    ///
+    ///  ```
+    /// # use ebb_and_flow::sparse::{Anf, Variable, VectorAssignment};
+    /// # const VARIABLES: Variable = 4;
+    /// let number_of_scalars = 1_u32.checked_shl(VARIABLES as u32).unwrap();
+    /// let number_of_anfs = 1_u32.checked_shl(number_of_scalars).unwrap();
+    /// let zero = Anf::<[u32; 1]>::empty(VARIABLES);
+    /// let one = !zero.clone();
+    /// assert_eq!(one, Anf::one(VARIABLES), "!0 == 1");
+    /// assert_ne!(zero, one, "0 =/= !0");
+    /// assert_eq!(zero, !one.clone(), "!!0 == 0");
+    /// ```
     fn not(mut self) -> Self {
         self.not_assign();
         self
