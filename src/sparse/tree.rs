@@ -82,11 +82,7 @@ impl<F: BitViewSized> SparseTree<F> {
 
 impl<F: BitViewSized + Clone> SparseTree<F> {
     pub fn flip(&mut self, assignment: &VectorAssignment<F>) -> bool {
-        if self.insert(assignment.clone()) {
-            true
-        } else {
-            self.remove(assignment)
-        }
+        self.remove(assignment) || self.insert(assignment.clone())
     }
 
     #[must_use]
