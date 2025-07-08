@@ -117,6 +117,15 @@ impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
         self.0.flip(summand)
     }
 
+    pub fn from_iter(
+        variables: Variable,
+        iter: impl IntoIterator<Item = VectorAssignment<F>>,
+    ) -> Self {
+        let mut new = Self::empty(variables);
+        new.0.heap.extend(iter);
+        new
+    }
+
     pub fn from_summands(
         variables: Variable,
         summands: impl IntoIterator<Item = VectorAssignment<F>>,
