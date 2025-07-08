@@ -414,14 +414,9 @@ impl<F: BitViewSized + Clone> BitOrAssign<&Anf<F>> for Anf<F> {
     /// ```
     fn bitor_assign(&mut self, rhs: &Anf<F>) {
         assert_eq!(self.variables(), rhs.variables());
-        let mut new = self.clone().unioned(rhs);
-        for left in self.0.heap.iter() {
-            for right in rhs.0.heap.iter() {
-                // For every element in the Cartesian product (lhs ∪ rhs) x (lhs ∪ rhs), we should
-                // insert the variable representing "...",
-                // represented by BitAnding the variable assignment bits.
-                new.insert(left.clone() & right);
-            }
+        let mut new = self.clone().union(rhs);
+        for left in self.intersection_iter(rhs) {
+            new.0.heap.extend(rhs.clone() & left);
         }
         *self = new;
     }
