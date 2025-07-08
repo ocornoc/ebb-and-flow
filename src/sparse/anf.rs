@@ -23,12 +23,6 @@ impl<F: BitViewSized> AlgebraicNormalForm<F> {
         AlgebraicNormalForm(SparseTree::empty(variables))
     }
 
-    pub fn one(variables: Variable) -> Self {
-        let mut anf = Anf::empty(variables);
-        anf.insert(VectorAssignment::none());
-        anf
-    }
-
     pub fn insert(&mut self, summand: VectorAssignment<F>) -> bool {
         self.0.insert(summand)
     }
@@ -115,6 +109,10 @@ type TranslatedInput<'iter, F, Fn1, Fn2> = std::iter::FlatMap<
 >;
 
 impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
+    pub fn one(variables: Variable) -> Self {
+        !Anf::empty(variables)
+    }
+
     pub fn flip(&mut self, summand: &VectorAssignment<F>) -> bool {
         self.0.flip(summand)
     }
