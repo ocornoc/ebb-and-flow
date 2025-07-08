@@ -152,12 +152,44 @@ impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
         }))
     }
 
-    pub fn union(&mut self, other: &Self) {
+    #[inline]
+    pub fn union_iter<'iter>(
+        &'iter self,
+        other: &'iter Self,
+    ) -> impl FusedIterator<Item = &'iter VectorAssignment<F>> {
+        debug_assert_eq!(self.variables(), other.variables());
+        self.0.heap.union(&other.0.heap)
+    }
+
+    pub fn union_assign(&mut self, other: &Self) {
         self.0.heap.extend(other.iter_summands().cloned());
     }
 
+    pub fn union(mut self, other: &Self) -> Self {
+        self.union_assign(other);
+        self
+    }
+
     pub fn unioned(mut self, other: &Self) -> Self {
-        self.union(other);
+        self.union_assign(other);
+        self
+    }
+
+    #[inline]
+    pub fn intersection_iter<'iter>(
+        &'iter self,
+        other: &'iter Self,
+    ) -> impl FusedIterator<Item = &'iter VectorAssignment<F>> {
+        debug_assert_eq!(self.variables(), other.variables());
+        self.0.heap.intersection(&other.0.heap)
+    }
+
+    pub fn intersect_assign(&mut self, other: &Self) {
+        *self = Anf::from_summands(self.variables(), self.intersection_iter(other).cloned());
+    }
+
+    pub fn intersection(mut self, other: &Self) -> Self {
+        self.intersect_assign(other);
         self
     }
 
