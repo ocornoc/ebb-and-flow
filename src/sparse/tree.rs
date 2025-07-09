@@ -81,8 +81,17 @@ impl<F: BitViewSized> SparseTree<F> {
 }
 
 impl<F: BitViewSized + Clone> SparseTree<F> {
-    pub fn flip(&mut self, assignment: &VectorAssignment<F>) -> bool {
-        self.remove(assignment) || self.insert(assignment.clone())
+    /// Toggle membership of the assignment in the [tree](SparseTree<F>).
+    ///
+    /// If the assignment was present, then this function will remove the assignment from the tree.
+    ///
+    /// If the assignment was not present, then this function will insert a clone of it.
+    pub fn toggle(&mut self, assignment: &VectorAssignment<F>) {
+        // If it wasn't there before,
+        if !self.remove(assignment) {
+            // then it should be now.
+            self.insert(assignment.clone());
+        }
     }
 
     #[must_use]

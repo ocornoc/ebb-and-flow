@@ -113,8 +113,8 @@ impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
         !Anf::empty(variables)
     }
 
-    pub fn flip(&mut self, summand: &VectorAssignment<F>) -> bool {
-        self.0.flip(summand)
+    pub fn toggle(&mut self, summand: &VectorAssignment<F>) {
+        self.0.toggle(summand);
     }
 
     pub fn from_iter(
@@ -132,7 +132,7 @@ impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
     ) -> Self {
         let mut new = Self::empty(variables);
         for summand in summands {
-            new.flip(&summand);
+            new.toggle(&summand);
         }
         new
     }
@@ -198,7 +198,7 @@ impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
     pub fn not_assign(&mut self) {
         // Adding 1 to f(x) is equal to toggling 1's assignment. 1's assignment is equal to the
         // empty assignment, e.g. is an always-true constant.
-        self.flip(&VectorAssignment::none());
+        self.toggle(&VectorAssignment::none());
     }
 
     /// Take the partial derivative of self(x) with respect to a given variable.
@@ -472,7 +472,7 @@ impl<F: BitViewSized + Clone> BitXorAssign<&Anf<F>> for Anf<F> {
         // its containment in rhs. If it's not in rhs, it's the same as self's value. If it is in
         // rhs, then we must toggle its entry.
         for summand in rhs.iter_summands() {
-            self.flip(summand);
+            self.toggle(summand);
         }
     }
 }

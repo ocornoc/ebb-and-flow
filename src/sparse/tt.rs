@@ -51,8 +51,8 @@ impl<F: BitViewSized> TruthTable<F> {
 }
 
 impl<F: BitViewSized + Clone> TruthTable<F> {
-    pub fn toggle(&mut self, assignment: &VectorAssignment<F>) -> bool {
-        self.0.flip(assignment)
+    pub fn toggle(&mut self, assignment: &VectorAssignment<F>) {
+        self.0.toggle(assignment);
     }
 
     #[must_use]
@@ -108,7 +108,7 @@ impl<F: BitViewSized> BitOr for TruthTable<F> {
 impl<F: BitViewSized + Clone> BitXorAssign<&TruthTable<F>> for TruthTable<F> {
     fn bitxor_assign(&mut self, rhs: &TruthTable<F>) {
         for assignment in rhs.0.iter() {
-            self.0.flip(assignment);
+            self.0.toggle(assignment);
         }
     }
 }
