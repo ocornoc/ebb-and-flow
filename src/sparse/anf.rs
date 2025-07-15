@@ -117,6 +117,38 @@ impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
         self.0.toggle(summand);
     }
 
+    /// Define a multilinear function by the summands it contains.
+    ///
+    /// Every function f : GF\[2]ⁿ -> GF\[2] is a multilinear function. This constructor provides a
+    /// convenient way to create the algebraic normal form representation of f with an iterator over
+    /// its summands. If an iterator output is repeated, this function does *not* remove the entry
+    /// from the algebraic normal form and simply keeps the original entry as-is; thus, this
+    /// constructor is *not* the same as summing many terms. For a function that represents summing
+    /// many terms, see [`Anf::from_summands`].
+    ///
+    /// ```
+    /// # use ebb_and_flow::sparse::{Anf, Variable, VectorAssignment};
+    /// let f = Anf::from_iter(5, [
+    ///     0b00000_u64.into(),
+    ///     0b00001_u64.into(),
+    ///     0b00100_u64.into(),
+    ///     0b01101_u64.into(),
+    ///     0b10001_u64.into(), // This element is inserted twice...
+    ///     0b10001_u64.into(), // but should remain in the ANF.
+    ///     0b11000_u64.into(),
+    /// ]);
+    /// // 6 instead of 7 because the duplicated term is only inserted once.
+    /// assert_eq!(f.iter_summands().count(), 6);
+    /// let g = Anf::from_iter(5, [
+    ///     0b00000_u64.into(),
+    ///     0b00001_u64.into(),
+    ///     0b00100_u64.into(),
+    ///     0b01101_u64.into(),
+    ///     0b10001_u64.into(), // Here, we only insert it once.
+    ///     0b11000_u64.into(),
+    /// ]);
+    /// assert_eq!(f, g);
+    /// ```
     pub fn from_iter(
         variables: Variable,
         iter: impl IntoIterator<Item = VectorAssignment<F>>,
@@ -126,6 +158,40 @@ impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
         new
     }
 
+    /// Define a multilinear function by summing many [terms](VectorAssignment).
+    ///
+    /// Every function f : GF\[2]ⁿ -> GF\[2] is a multilinear function. This constructor provides a
+    /// convenient way to create the algebraic normal form representation of f with an iterator over
+    /// its summands. If an iterator output is repeated, this function *does* remove the entry
+    /// from the algebraic normal form; thus, this constructor is equivalent to summing many terms.
+    /// For a function that will not toggle duplicated iterator outputs, see  [`Anf::from_iter`].
+    ///
+    /// ```
+    /// # use ebb_and_flow::sparse::{Anf, Variable, VectorAssignment};
+    /// let f = Anf::from_summands(5, [
+    ///     0b00000_u64.into(),
+    ///     0b00001_u64.into(),
+    ///     0b00100_u64.into(),
+    ///     0b01101_u64.into(),
+    ///     0b10001_u64.into(), // This element is summed twice...
+    ///     0b10001_u64.into(), // and thus will be removed (x + x = 0 in GF[2]).
+    ///     0b11000_u64.into(), // This element is summed thrice...
+    ///     0b11000_u64.into(), // and thus will end up being contained in the ANF.
+    ///     0b11000_u64.into(), // (x + x + x = 0 + x = x in GF[2])
+    /// ]);
+    /// // 5 instead of 9 because the duplicated term ends up not present while the triplicated term
+    /// // will be present only once.
+    /// assert_eq!(f.iter_summands().count(), 5);
+    /// let g = Anf::from_summands(5, [
+    ///     0b00000_u64.into(),
+    ///     0b00001_u64.into(),
+    ///     0b00100_u64.into(),
+    ///     0b01101_u64.into(),
+    ///     // We skip 0b10001_u64.into().
+    ///     0b11000_u64.into(), // We keep this entry once.
+    /// ]);
+    /// assert_eq!(f, g);
+    /// ```
     pub fn from_summands(
         variables: Variable,
         summands: impl IntoIterator<Item = VectorAssignment<F>>,
@@ -137,6 +203,7 @@ impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
         new
     }
 
+    /// Swap all occurences of one variable with another, and vice versa.
     #[must_use]
     pub fn swap_variables(&self, v1: Variable, v2: Variable) -> Self {
         AlgebraicNormalForm(self.0.swap_variables(v1, v2))
