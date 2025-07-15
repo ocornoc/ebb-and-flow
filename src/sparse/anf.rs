@@ -127,7 +127,7 @@ impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
     /// many terms, see [`Anf::from_summands`].
     ///
     /// ```
-    /// # use ebb_and_flow::sparse::{Anf, Variable, VectorAssignment};
+    /// # use ebb_and_flow::sparse::{Anf, VectorAssignment};
     /// let f = Anf::from_iter(5, [
     ///     0b00000_u64.into(),
     ///     0b00001_u64.into(),
@@ -167,7 +167,7 @@ impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
     /// For a function that will not toggle duplicated iterator outputs, see  [`Anf::from_iter`].
     ///
     /// ```
-    /// # use ebb_and_flow::sparse::{Anf, Variable, VectorAssignment};
+    /// # use ebb_and_flow::sparse::{Anf, VectorAssignment};
     /// let f = Anf::from_summands(5, [
     ///     0b00000_u64.into(),
     ///     0b00001_u64.into(),
