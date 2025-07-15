@@ -144,9 +144,9 @@ impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
 
     #[must_use]
     pub fn substitute_variable(&self, variable: Variable, replacement: &VectorAssignment<F>) -> Self {
-        Self::from_summands(self.variables(), self.into_iter().cloned().map(|mut assignment| {
+        Self::from_iter(self.variables(), self.into_iter().cloned().map(|mut assignment| {
             if assignment.remove(variable) {
-                assignment ^= replacement;
+                assignment |= replacement;
             }
             assignment
         }))
