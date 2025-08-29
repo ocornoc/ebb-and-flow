@@ -69,14 +69,16 @@ impl<F: BitViewSized> SparseTree<F> {
         }
     }
 
-    fn reduce_or(&self) -> VectorAssignment<F> {
+    /// Compute the conjunction of all of the entries.
+    pub fn horizontal_conjunction(&self) -> VectorAssignment<F> {
         self
             .iter()
             .fold(VectorAssignment::none(), |acc, assignment| acc | assignment)
     }
 
+    /// Count how many variables are referenced by any of the contained summands.
     pub fn count_live_variables(&self) -> usize {
-        self.reduce_or().count_live_variables()
+        self.horizontal_conjunction().count_live_variables()
     }
 }
 
