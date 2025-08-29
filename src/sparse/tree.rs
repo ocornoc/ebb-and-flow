@@ -4,9 +4,9 @@ use super::{Variable, VectorAssignment};
 
 #[derive(Clone)]
 pub struct SparseTree<F: BitViewSized> {
-    pub variables: Variable,
-    pub mask: Box<VectorAssignment<F>>,
-    pub heap: BTreeSet<VectorAssignment<F>>,
+    pub(super) variables: Variable,
+    pub(super) mask: Box<VectorAssignment<F>>,
+    pub(super) heap: BTreeSet<VectorAssignment<F>>,
 }
 
 impl<F: BitViewSized> SparseTree<F> {
