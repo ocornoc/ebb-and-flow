@@ -268,7 +268,7 @@ impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
         self.toggle(&VectorAssignment::none());
     }
 
-    /// Take the partial derivative of self(x) with respect to a given variable.
+    /// Calculate the partial derivative of self(x) with respect to a given variable.
     ///
     /// ```
     /// # use ebb_and_flow::sparse::{Anf, Variable, VectorAssignment};
@@ -364,7 +364,7 @@ impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
         )
     }
 
-    /// Get the divergence of self(x), which is the sum of all of its partial derivatives.
+    /// Calculate the divergence of self(x), which is the sum of all of its partial derivatives.
     ///
     /// ```
     /// # use ebb_and_flow::sparse::{Anf, Variable, VectorAssignment};
