@@ -95,26 +95,17 @@ impl<F: BitViewSized> AlgebraicNormalForm<F> {
     ) -> impl FusedIterator<Item = &'iter VectorAssignment<F>> {
         self.iter_intersecting_aux(intersectant)
     }
-}
 
-type Intersecting<'iter, F, Fn> = std::iter::Filter<
-    <&'iter SparseTree<F> as IntoIterator>::IntoIter,
-    Fn,
->;
-
-type TranslatedInput<'iter, F, Fn1, Fn2> = std::iter::FlatMap<
-    Intersecting<'iter, F, Fn1>,
-    AndNotIter<F>,
-    Fn2,
->;
-
-impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
     pub fn one(variables: Variable) -> Self {
-        !Anf::empty(variables)
+        Anf::from_iter(variables, std::iter::once(VectorAssignment::none()))
     }
 
-    pub fn toggle(&mut self, summand: &VectorAssignment<F>) {
-        self.0.toggle(summand);
+    /// Given a [boolean vector function](AlgebraicNormalForm) f(x), update f(x) in-place with
+    /// definition g(x) := !f(x) = 1 ⊕ f(x).
+    pub fn not_assign(&mut self) {
+        // Adding 1 to f(x) is equal to toggling 1's assignment. 1's assignment is equal to the
+        // empty assignment, e.g. is an always-true constant.
+        self.modify_summand(VectorAssignment::none(), Not::not);
     }
 
     /// Define a multilinear function by the summands it contains.
@@ -156,6 +147,23 @@ impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
         let mut new = Self::empty(variables);
         new.0.heap.extend(iter);
         new
+    }
+}
+
+type Intersecting<'iter, F, Fn> = std::iter::Filter<
+    <&'iter SparseTree<F> as IntoIterator>::IntoIter,
+    Fn,
+>;
+
+type TranslatedInput<'iter, F, Fn1, Fn2> = std::iter::FlatMap<
+    Intersecting<'iter, F, Fn1>,
+    AndNotIter<F>,
+    Fn2,
+>;
+
+impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
+    pub fn toggle(&mut self, summand: &VectorAssignment<F>) {
+        self.0.toggle(summand);
     }
 
     /// Define a multilinear function by summing many [terms](VectorAssignment).
@@ -289,14 +297,6 @@ impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
     /// Assign self to the [intersection](Anf::intersection) between self(x) and other(x).
     pub fn intersect_assign(&mut self, other: &Self) {
         *self = Anf::from_summands(self.variables(), self.intersection_iter(other).cloned());
-    }
-
-    /// Given a [boolean vector function](AlgebraicNormalForm) f(x), update f(x) in-place with
-    /// definition g(x) := !f(x) = 1 ⊕ f(x).
-    pub fn not_assign(&mut self) {
-        // Adding 1 to f(x) is equal to toggling 1's assignment. 1's assignment is equal to the
-        // empty assignment, e.g. is an always-true constant.
-        self.toggle(&VectorAssignment::none());
     }
 
     /// Calculate the partial derivative of self(x) with respect to a given variable.
@@ -676,7 +676,7 @@ impl<'a, F: BitViewSized> IntoIterator for &'a Anf<F> {
     }
 }
 
-impl<F: BitViewSized + Clone> Not for Anf<F> {
+impl<F: BitViewSized> Not for Anf<F> {
     type Output = Self;
 
     /// Calculate the logical negation of this boolean vector function.
