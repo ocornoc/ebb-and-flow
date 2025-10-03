@@ -227,6 +227,26 @@ impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
         }))
     }
 
+    /// Replace every occurence of a given product of variables in the support of self with the
+    /// product of other variables.
+    ///
+    /// Variables in the subterm will be removed when replaced, unless the replacement minterm
+    /// also contains each variable.
+    #[must_use]
+    pub fn substitute_subterm(
+        &self,
+        subterm: &VectorAssignment<F>,
+        replacement: &VectorAssignment<F>,
+    ) -> Self {
+        Self::from_iter(self.variables(), self.into_iter().cloned().map(|mut assignment| {
+            if assignment.is_superset_of(subterm) {
+                assignment &= !subterm.clone();
+                assignment |= replacement;
+            }
+            assignment
+        }))
+    }
+
     /// Iterate over the union of the supports of self(x) and other(x).
     #[inline]
     pub fn union_iter<'iter>(
