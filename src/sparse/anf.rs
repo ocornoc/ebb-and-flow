@@ -260,8 +260,8 @@ impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
         self
     }
 
-    /// Given a [boolean vector function](AlgebraicNormalForm) f(x), return
-    /// g(x) := !f(x) = 1 ⊕ f(x).
+    /// Given a [boolean vector function](AlgebraicNormalForm) f(x), update f(x) in-place with
+    /// definition g(x) := !f(x) = 1 ⊕ f(x).
     pub fn not_assign(&mut self) {
         // Adding 1 to f(x) is equal to toggling 1's assignment. 1's assignment is equal to the
         // empty assignment, e.g. is an always-true constant.
