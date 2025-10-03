@@ -329,6 +329,12 @@ impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
         self.with_translated_input_iter_aux(direction)
     }
 
+    /// Calculate the derivative of self(x) in a particular direction.
+    ///
+    /// The direction chooses which variables are *not* considered constant when taking the
+    /// derivative. The total derivative of self is a special case of this function where the
+    /// direction vector is all ones. The partial derivative of self with respect to variable `v`
+    /// is a special case where the direction vector is one-hot at `v`.
     pub fn directional_derivative(&self, direction: &VectorAssignment<F>) -> Self {
         // The minterms of the multilinear function self(x ⊕ direction)
         let summands_with_shifted_input = self.with_translated_input_iter(direction);
