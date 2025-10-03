@@ -349,6 +349,10 @@ impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
         )
     }
 
+    /// Calculate the homogeneity of self(x).
+    ///
+    /// The homogeneity differential operator is defined as the sum of every variable multiplied by
+    /// the partial derivative of `self` with respect to that variable.
     pub fn homogeneity(&self) -> Self {
         Anf::from_summands(
             self.variables(),
