@@ -209,6 +209,14 @@ impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
         AlgebraicNormalForm(self.0.swap_variables(v1, v2))
     }
 
+    /// Replace every occurence of a variable in the support of self with the product of other
+    /// variables.
+    ///
+    /// This is a special case of [`substitute_subterm`](Anf::substitute_subterm) where the subterm
+    /// is the singular vector containing the variable.
+    ///
+    /// If the variable being subtituted is also present in the replacement minterm, then that
+    /// variable will remain in the minterm instead of being removed.
     #[must_use]
     pub fn substitute_variable(&self, variable: Variable, replacement: &VectorAssignment<F>) -> Self {
         Self::from_iter(self.variables(), self.into_iter().cloned().map(|mut assignment| {
