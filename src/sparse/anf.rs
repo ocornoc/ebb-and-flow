@@ -219,6 +219,7 @@ impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
         }))
     }
 
+    /// Iterate over the union of the supports of self(x) and other(x).
     #[inline]
     pub fn union_iter<'iter>(
         &'iter self,
@@ -228,20 +229,19 @@ impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
         self.0.heap.union(&other.0.heap)
     }
 
-    pub fn union_assign(&mut self, other: &Self) {
-        self.0.heap.extend(other.iter_summands().cloned());
-    }
-
+    /// Calculate the function with support equal to the union of the supports of self(x) and
+    /// other(x).
     pub fn union(mut self, other: &Self) -> Self {
         self.union_assign(other);
         self
     }
 
-    pub fn unioned(mut self, other: &Self) -> Self {
-        self.union_assign(other);
-        self
+    /// Assign self to the [union](Anf::union) between self(x) and other(x).
+    pub fn union_assign(&mut self, other: &Self) {
+        self.0.heap.extend(other.iter_summands().cloned());
     }
 
+    /// Iterate over the intersection of the supports of self(x) and other(x).
     #[inline]
     pub fn intersection_iter<'iter>(
         &'iter self,
@@ -251,13 +251,16 @@ impl<F: BitViewSized + Clone> AlgebraicNormalForm<F> {
         self.0.heap.intersection(&other.0.heap)
     }
 
-    pub fn intersect_assign(&mut self, other: &Self) {
-        *self = Anf::from_summands(self.variables(), self.intersection_iter(other).cloned());
-    }
-
+    /// Calculate the function with support equal to the intersection of the supports of self(x) and
+    /// other(x).
     pub fn intersection(mut self, other: &Self) -> Self {
         self.intersect_assign(other);
         self
+    }
+
+    /// Assign self to the [intersection](Anf::intersection) between self(x) and other(x).
+    pub fn intersect_assign(&mut self, other: &Self) {
+        *self = Anf::from_summands(self.variables(), self.intersection_iter(other).cloned());
     }
 
     /// Given a [boolean vector function](AlgebraicNormalForm) f(x), update f(x) in-place with
