@@ -144,6 +144,26 @@ impl<F: BitViewSized> VectorAssignment<F> {
         *self = Self::none();
     }
 
+    /// Returns `true` if exactly one variable is in the assignment.
+    ///
+    /// ```
+    /// # use ebb_and_flow::sparse::{Variable, VectorAssignment};
+    /// // Empty assignments are not singular.
+    /// assert!(!VectorAssignment::<[u8; 3]>::none().is_singular());
+    /// // Singular constructor is singular.
+    /// # for variable in 0..(u8::BITS * 3) as Variable {
+    /// let mut singular = VectorAssignment::<[u8; 3]>::singular(variable);
+    /// assert!(singular.is_singular());
+    /// // Two variables is not singular.
+    /// # for other_variable in 0..variable {
+    /// # let mut singular = singular.clone();
+    /// singular.insert(other_variable);
+    /// assert!(!singular.is_singular());
+    /// # }
+    /// # }
+    /// // All-one assignments are not singular.
+    /// assert!(!VectorAssignment::<[u8; 3]>::all().is_singular());
+    /// ```
     pub fn is_singular(&self) -> bool {
         let leading_zeros = self.0.leading_zeros();
         let trailing_zeros = self.0.trailing_zeros();
