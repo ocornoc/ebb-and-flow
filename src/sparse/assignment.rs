@@ -82,6 +82,11 @@ impl<F: BitViewSized> VectorAssignment<F> {
         self.0.set(variable as usize, value)
     }
 
+    /// Insert a variable to the assignment.
+    pub fn insert(&mut self, variable: Variable) {
+        self.set(variable, true);
+    }
+
     /// Set a specific variable to true (contained) or false (not contained) within the assignment,
     /// returning whether the variable was previously contained or not.
     pub fn replace(&mut self, variable: Variable, value: bool) -> bool {
@@ -103,13 +108,13 @@ impl<F: BitViewSized> VectorAssignment<F> {
     /// let singular = VectorAssignment::<[u8; 4]>::singular(variable);
     /// // Create the equivalent assignment manually.
     /// let mut one_set = VectorAssignment::none();
-    /// one_set.set(variable, true);
+    /// one_set.insert(variable);
     /// assert_eq!(singular, one_set);
     /// # }
     /// ```
     pub fn singular(variable: Variable) -> Self {
         let mut out = VectorAssignment::none();
-        out.set(variable, true);
+        out.insert(variable);
         out
     }
 
